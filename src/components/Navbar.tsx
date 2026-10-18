@@ -196,20 +196,22 @@ export const Navbar = ({
                       )}
 
                       <div className="profile-dropdown-menu-list">
-                        {/* Option a: Admin Section */}
-                        <button
-                          className="profile-dropdown-item"
-                          onClick={handleAdminOption}
-                        >
-                          <div className="profile-dropdown-icon-box" style={{ background: 'rgba(234, 88, 12, 0.12)', color: '#EA580C' }}>
-                            <Shield size={15} />
-                          </div>
-                          <div>
-                            <div className="dropdown-item-title">
-                              {isAdminSection ? 'Switch to User View' : 'Admin Section'}
+                        {/* Option a: Admin Section (Restricted to verified admins only) */}
+                        {currentUser?.role === 'admin' && (
+                          <button
+                            className="profile-dropdown-item"
+                            onClick={handleAdminOption}
+                          >
+                            <div className="profile-dropdown-icon-box" style={{ background: 'rgba(234, 88, 12, 0.12)', color: '#EA580C' }}>
+                              <Shield size={15} />
                             </div>
-                          </div>
-                        </button>
+                            <div>
+                              <div className="dropdown-item-title">
+                                {isAdminSection ? 'Switch to User View' : 'Admin Portal'}
+                              </div>
+                            </div>
+                          </button>
+                        )}
 
                         {/* Option b: Analytics */}
                         <button

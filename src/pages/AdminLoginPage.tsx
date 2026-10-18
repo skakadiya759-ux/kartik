@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Shield, AlertCircle, KeyRound, Mail, Lock } from 'lucide-react';
+import { AlertCircle, KeyRound, Mail, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import type { Participant } from '../types';
 
@@ -13,8 +13,8 @@ export const AdminLoginPage = ({
   onSuccess,
   onNavigateToUserLogin,
 }: AdminLoginPageProps) => {
-  const [identifier, setIdentifier] = useState('admin@kartikchallenge.org');
-  const [password, setPassword] = useState('Kartik@2026!HareKrishna');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,61 +26,39 @@ export const AdminLoginPage = ({
     try {
       const response = await api.login(identifier.trim(), password);
       if (response.user.role !== 'admin') {
-        setError('This account does not have administrative privileges.');
+        setError('Access denied: This account does not have administrative privileges.');
         return;
       }
       onSuccess(response.user);
     } catch (err: unknown) {
       const errorObj = err as Error;
-      setError(errorObj.message || 'Admin authentication failed.');
+      setError(errorObj.message || 'Invalid administrator credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="page-container animate-fade-in" style={{ maxWidth: '480px', margin: '2.5rem auto' }}>
+    <div className="page-container animate-fade-in" style={{ maxWidth: '440px', margin: '2.5rem auto' }}>
       <div className="glass-panel" style={{ padding: '2.5rem 2rem' }}>
-        {/* Role Toggle Switcher */}
-        <div style={{ display: 'flex', background: 'rgba(28, 25, 23, 0.05)', padding: '4px', borderRadius: 'var(--radius-pill)', marginBottom: '1.75rem' }}>
+        <div style={{ marginBottom: '1.25rem' }}>
           <button
             type="button"
             onClick={onNavigateToUserLogin}
             style={{
-              flex: 1,
-              padding: '0.55rem',
-              borderRadius: 'var(--radius-pill)',
+              background: 'none',
               border: 'none',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
+              color: 'var(--text-muted)',
+              fontSize: '0.82rem',
               fontWeight: 600,
-              fontSize: '0.84rem',
               cursor: 'pointer',
-            }}
-          >
-            Devotee Sign In
-          </button>
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '0.55rem',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              background: '#FFFFFF',
-              color: 'var(--primary-orange-deep)',
-              fontWeight: 800,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              gap: '0.35rem',
+              padding: 0,
             }}
           >
-            <Shield size={14} color="#EA580C" />
-            Admin Portal
+            ← Back to Devotee Portal
           </button>
         </div>
 
@@ -183,9 +161,6 @@ export const AdminLoginPage = ({
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-          Pre-configured credentials are populated for authorized evaluation.
-        </div>
       </div>
     </div>
   );

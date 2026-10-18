@@ -1,19 +1,18 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Lock, Phone, AlertCircle, LogIn, Shield } from 'lucide-react';
+import { Lock, Phone, AlertCircle, LogIn } from 'lucide-react';
 import { api } from '../services/api';
 import type { Participant } from '../types';
 
 interface LoginPageProps {
   onSuccess: (user: Participant) => void;
   onNavigateToRegister: () => void;
-  onNavigateToAdminLogin: () => void;
+  onNavigateToAdminLogin?: () => void;
 }
 
 export const LoginPage = ({
   onSuccess,
   onNavigateToRegister,
-  onNavigateToAdminLogin,
 }: LoginPageProps) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +24,7 @@ export const LoginPage = ({
     setError(null);
 
     if (!identifier.trim()) {
-      setError('Please enter your 10-digit mobile number or identifier.');
+      setError('Please enter your 10-digit mobile number.');
       return;
     }
 
@@ -47,57 +46,9 @@ export const LoginPage = ({
     }
   };
 
-  const fillDemo = (id: string, pass: string) => {
-    setIdentifier(id);
-    setPassword(pass);
-    setError(null);
-  };
-
   return (
     <div className="page-container animate-fade-in" style={{ maxWidth: '480px', margin: '2rem auto' }}>
       <div className="glass-panel" style={{ padding: '2.5rem 2rem' }}>
-        {/* Toggle between Participant and Admin */}
-        <div style={{ display: 'flex', background: 'rgba(28, 25, 23, 0.05)', padding: '4px', borderRadius: 'var(--radius-pill)', marginBottom: '1.75rem' }}>
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '0.55rem',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              background: '#FFFFFF',
-              color: 'var(--primary-orange-deep)',
-              fontWeight: 800,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-            }}
-          >
-            Devotee Sign In
-          </button>
-          <button
-            type="button"
-            onClick={onNavigateToAdminLogin}
-            style={{
-              flex: 1,
-              padding: '0.55rem',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-            }}
-          >
-            <Shield size={14} color="#EA580C" />
-            Admin Portal
-          </button>
-        </div>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
@@ -202,35 +153,6 @@ export const LoginPage = ({
           </button>
         </form>
 
-        {/* Demo Fast Logins */}
-        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(28, 25, 23, 0.08)' }}>
-          <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 800, marginBottom: '0.65rem', textAlign: 'center' }}>
-            Quick Demo Accounts (1-Click)
-          </div>
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => fillDemo('9876543210', 'HareKrishna108')}
-            >
-              Aarav (PDEU)
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => fillDemo('9876543214', 'HareKrishna108')}
-            >
-              Madhavan (Local)
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              onClick={() => fillDemo('9876543211', 'HareKrishna108')}
-            >
-              Priyanshu (Infocity)
-            </button>
-          </div>
-        </div>
 
         {/* Footer: Register link */}
         <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>

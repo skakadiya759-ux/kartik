@@ -25,8 +25,23 @@ export const Footer = () => {
           color: 'var(--text-secondary)',
         }}
       >
-        <div style={{ fontWeight: 600 }}>
-          © 2026 Kartik Challenge • Hare Krishna Movement
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600 }}>
+          <span>© 2026 Kartik Challenge • Hare Krishna Movement</span>
+          <a
+            href="#admin-login"
+            style={{
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+              opacity: 0.35,
+              fontSize: '0.75rem',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.35')}
+            title="Administrator Portal"
+          >
+            Admin Gate
+          </a>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem' }}>

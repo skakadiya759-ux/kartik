@@ -20,11 +20,11 @@ try {
   console.warn('Could not create data directory on init:', err.message);
 }
 
-// Initial default seed state
+// Clean default seed state (Master Admin only, zero test data)
 const getInitialState = () => {
   const salt = bcrypt.genSaltSync(10);
-  const adminHashed = bcrypt.hashSync('Kartik@2026!HareKrishna', salt);
-  const userHashed = bcrypt.hashSync('HareKrishna108', salt);
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Kartik@2026!HareKrishna';
+  const adminHashed = bcrypt.hashSync(adminPassword, salt);
 
   const initialParticipants = [
     {
@@ -35,137 +35,15 @@ const getInitialState = () => {
       centre: 'Local ISKCON',
       baselineRounds: 16,
       role: 'admin',
-      createdAt: '2026-10-01T04:30:00.000Z',
-    },
-    {
-      id: 'usr_1',
-      name: 'Aarav Sharma',
-      mobile: '+919876543210',
-      passwordHash: userHashed,
-      centre: 'FOLK PDEU',
-      baselineRounds: 4,
-      role: 'participant',
-      createdAt: '2026-10-05T10:00:00.000Z',
-    },
-    {
-      id: 'usr_2',
-      name: 'Priyanshu Patel',
-      mobile: '+919876543211',
-      passwordHash: userHashed,
-      centre: 'FOLK Infocity',
-      baselineRounds: 2,
-      role: 'participant',
-      createdAt: '2026-10-06T11:15:00.000Z',
-    },
-    {
-      id: 'usr_3',
-      name: 'Sneha Joshi',
-      mobile: '+919876543213',
-      passwordHash: userHashed,
-      centre: 'FOLK PDEU',
-      baselineRounds: 1,
-      role: 'participant',
-      createdAt: '2026-10-07T08:30:00.000Z',
-    },
-    {
-      id: 'usr_4',
-      name: 'Madhavan Nair',
-      mobile: '+919876543214',
-      passwordHash: userHashed,
-      centre: 'Local ISKCON',
-      baselineRounds: 8,
-      role: 'participant',
-      createdAt: '2026-10-08T14:20:00.000Z',
-    },
-    {
-      id: 'usr_5',
-      name: 'Rohan Trivedi',
-      mobile: '+919876543215',
-      passwordHash: userHashed,
-      centre: 'FOLK Infocity',
-      baselineRounds: 0,
-      role: 'participant',
-      createdAt: '2026-10-09T09:00:00.000Z',
-    },
-  ];
-
-  const initialSessions = [
-    {
-      id: 'sess_1',
-      date: '2026-10-12',
-      title: 'Damodarashtakam Recitation & Deep Meditation',
-      speaker: 'HG Gauranga Priya Dasa',
-      topic: 'The Glories of Mother Yashoda tying Lord Damodara',
-      points: 10,
-      attendedParticipantIds: ['usr_1', 'usr_2', 'usr_3', 'usr_4'],
-      createdAt: '2026-10-10T08:00:00.000Z',
-    },
-    {
-      id: 'sess_2',
-      date: '2026-10-15',
-      title: 'Bhagavad Gita Chapter 9: The Most Confidential Knowledge',
-      speaker: 'HG Radheshyam Dasa',
-      topic: 'Verse 26: Offering with Pure Love and Devotion',
-      points: 10,
-      attendedParticipantIds: ['usr_1', 'usr_2', 'usr_4'],
-      createdAt: '2026-10-13T09:00:00.000Z',
-    },
-    {
-      id: 'sess_3',
-      date: '2026-10-17',
-      title: 'Srimad Bhagavatam Canto 10 Shravanam: Vraja Lila',
-      speaker: 'HG Govinda Sundar Dasa',
-      topic: 'Entering into the Spirit of Kartik Vrata',
-      points: 10,
-      attendedParticipantIds: ['usr_1', 'usr_3'],
-      createdAt: '2026-10-16T10:00:00.000Z',
-    },
-  ];
-
-  const initialJapaRecords = [
-    // Aarav
-    { id: 'japa_1', participantId: 'usr_1', date: '2026-10-14', challengeRounds: 4, readingMinutes: 30, points: 50, submittedAt: '2026-10-14T18:00:00.000Z' },
-    { id: 'japa_2', participantId: 'usr_1', date: '2026-10-15', challengeRounds: 4, readingMinutes: 25, points: 45, submittedAt: '2026-10-15T19:30:00.000Z' },
-    { id: 'japa_3', participantId: 'usr_1', date: '2026-10-16', challengeRounds: 6, readingMinutes: 40, points: 70, submittedAt: '2026-10-16T20:00:00.000Z' },
-    { id: 'japa_4', participantId: 'usr_1', date: '2026-10-17', challengeRounds: 4, readingMinutes: 30, points: 50, submittedAt: '2026-10-17T08:15:00.000Z' },
-
-    // Priyanshu
-    { id: 'japa_5', participantId: 'usr_2', date: '2026-10-15', challengeRounds: 4, readingMinutes: 20, points: 40, submittedAt: '2026-10-15T18:45:00.000Z' },
-    { id: 'japa_6', participantId: 'usr_2', date: '2026-10-16', challengeRounds: 4, readingMinutes: 20, points: 40, submittedAt: '2026-10-16T19:10:00.000Z' },
-    { id: 'japa_7', participantId: 'usr_2', date: '2026-10-17', challengeRounds: 6, readingMinutes: 30, points: 60, submittedAt: '2026-10-17T09:00:00.000Z' },
-
-    // Sneha
-    { id: 'japa_8', participantId: 'usr_3', date: '2026-10-15', challengeRounds: 2, readingMinutes: 15, points: 25, submittedAt: '2026-10-15T20:00:00.000Z' },
-    { id: 'japa_9', participantId: 'usr_3', date: '2026-10-16', challengeRounds: 2, readingMinutes: 20, points: 30, submittedAt: '2026-10-16T21:10:00.000Z' },
-    { id: 'japa_10', participantId: 'usr_3', date: '2026-10-17', challengeRounds: 3, readingMinutes: 25, points: 40, submittedAt: '2026-10-17T07:45:00.000Z' },
-
-    // Madhavan
-    { id: 'japa_11', participantId: 'usr_4', date: '2026-10-15', challengeRounds: 8, readingMinutes: 45, points: 85, submittedAt: '2026-10-15T17:30:00.000Z' },
-    { id: 'japa_12', participantId: 'usr_4', date: '2026-10-16', challengeRounds: 8, readingMinutes: 45, points: 85, submittedAt: '2026-10-16T18:00:00.000Z' },
-    { id: 'japa_13', participantId: 'usr_4', date: '2026-10-17', challengeRounds: 8, readingMinutes: 50, points: 90, submittedAt: '2026-10-17T06:30:00.000Z' },
-
-    // Rohan
-    { id: 'japa_14', participantId: 'usr_5', date: '2026-10-16', challengeRounds: 2, readingMinutes: 15, points: 25, submittedAt: '2026-10-16T19:30:00.000Z' },
-    { id: 'japa_15', participantId: 'usr_5', date: '2026-10-17', challengeRounds: 2, readingMinutes: 20, points: 30, submittedAt: '2026-10-17T09:15:00.000Z' },
-  ];
-
-  const initialAdjustments = [
-    {
-      id: 'adj_1',
-      participantId: 'usr_1',
-      participantName: 'Aarav Sharma',
-      adminName: 'Central Admin ISKCON',
-      points: 15,
-      reason: 'Mangala Arati & Deep Daan volunteering reward',
-      timestamp: '2026-10-16T12:00:00.000Z',
+      createdAt: new Date().toISOString(),
     },
   ];
 
   return {
     participants: initialParticipants,
-    sessions: initialSessions,
-    japaRecords: initialJapaRecords,
-    adjustments: initialAdjustments,
+    sessions: [],
+    japaRecords: [],
+    adjustments: [],
   };
 };
 
