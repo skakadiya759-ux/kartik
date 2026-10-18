@@ -100,9 +100,9 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const baseline = parseInt(baselineRounds, 10);
-    if (isNaN(baseline) || baseline < 0 || baseline > 64) {
+    if (isNaN(baseline) || baseline < 0 || baseline > 128) {
       return res.status(400).json({
-        error: 'Baseline rounds must be between 0 and 64',
+        error: 'Baseline rounds must be between 0 and 128',
       });
     }
 
@@ -224,8 +224,8 @@ const handleSadhanaSubmit = (req, res) => {
     const roundCount = Math.max(0, parseInt(rounds, 10) || 0);
     const readingMin = Math.max(0, parseInt(readingMinutes, 10) || 0);
 
-    if (roundCount < 0 || roundCount > 64) {
-      return res.status(400).json({ error: 'Chanting rounds must be between 0 and 64' });
+    if (roundCount < 0 || roundCount > 128) {
+      return res.status(400).json({ error: 'Chanting rounds must be between 0 and 128' });
     }
 
     if (readingMin < 0 || readingMin > 720) {

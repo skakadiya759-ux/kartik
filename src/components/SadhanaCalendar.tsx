@@ -94,6 +94,19 @@ export const SadhanaCalendar = ({
   // Selected date for the detail modal
   const [selectedDay, setSelectedDay] = useState<DayActivityDetails | null>(null);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedDay(null);
+      }
+    };
+    if (selectedDay) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [selectedDay]);
+
   // Data state
   const [calendarData, setCalendarData] = useState<CalendarDataResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -394,35 +407,15 @@ export const SadhanaCalendar = ({
         </div>
       </div>
 
-      {/* 2. MONTHLY SUMMARY CARDS */}
+      {/* 2. MONTHLY SUMMARY CARDS (CLEAN & HORIZONTALLY SCROLLABLE) */}
       <div className="calendar-summary-grid">
-        <div className="calendar-summary-card">
-          <div className="summary-icon-box summary-icon-japa">
-            <Flame size={18} />
+        <div className="calendar-summary-card summary-card-highlight">
+          <div className="summary-icon-box summary-icon-points">
+            <Award size={18} />
           </div>
           <div className="summary-content">
-            <div className="summary-val">{monthlySummary.japaDaysCompleted}</div>
-            <div className="summary-label">Japa Days Completed</div>
-          </div>
-        </div>
-
-        <div className="calendar-summary-card">
-          <div className="summary-icon-box summary-icon-reading">
-            <BookOpen size={18} />
-          </div>
-          <div className="summary-content">
-            <div className="summary-val">{monthlySummary.readingDaysCompleted}</div>
-            <div className="summary-label">Reading Days Completed</div>
-          </div>
-        </div>
-
-        <div className="calendar-summary-card">
-          <div className="summary-icon-box summary-icon-session">
-            <Users size={18} />
-          </div>
-          <div className="summary-content">
-            <div className="summary-val">{monthlySummary.sessionsAttended}</div>
-            <div className="summary-label">Sessions Attended</div>
+            <div className="summary-val">{monthlySummary.totalPoints} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>pts</span></div>
+            <div className="summary-label">Total Points</div>
           </div>
         </div>
 
@@ -432,19 +425,41 @@ export const SadhanaCalendar = ({
           </div>
           <div className="summary-content">
             <div className="summary-val">{monthlySummary.totalRounds} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>rds</span></div>
-            <div className="summary-label">Total Rounds This Month</div>
+            <div className="summary-label">Total Rounds</div>
           </div>
         </div>
 
-        <div className="calendar-summary-card summary-card-highlight">
-          <div className="summary-icon-box summary-icon-points">
-            <Award size={18} />
+        <div className="calendar-summary-card">
+          <div className="summary-icon-box summary-icon-japa">
+            <Flame size={18} />
           </div>
           <div className="summary-content">
-            <div className="summary-val">{monthlySummary.totalPoints} <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>pts</span></div>
-            <div className="summary-label">Total Points This Month</div>
+            <div className="summary-val">{monthlySummary.japaDaysCompleted}</div>
+            <div className="summary-label">Japa Days</div>
           </div>
         </div>
+
+        <div className="calendar-summary-card">
+          <div className="summary-icon-box summary-icon-reading">
+            <BookOpen size={18} />
+          </div>
+          <div className="summary-content">
+            <div className="summary-val">{monthlySummary.readingDaysCompleted}</div>
+            <div className="summary-label">Reading Days</div>
+          </div>
+        </div>
+
+        {monthlySummary.sessionsAttended > 0 && (
+          <div className="calendar-summary-card">
+            <div className="summary-icon-box summary-icon-session">
+              <Users size={18} />
+            </div>
+            <div className="summary-content">
+              <div className="summary-val">{monthlySummary.sessionsAttended}</div>
+              <div className="summary-label">Sessions Attended</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. CALENDAR LEGEND */}
@@ -608,7 +623,7 @@ export const SadhanaCalendar = ({
               </button>
             </div>
 
-            {/* Modal Activity Breakdown Grid */}
+            {/* Modal Activity Breakdown Grid (Only essentials) */}
             <div className="modal-activities-list">
               {/* Activity 1: Japa / Chanting */}
               <div className="modal-activity-card">
@@ -618,15 +633,11 @@ export const SadhanaCalendar = ({
                   </div>
                   <div>
                     <div className="activity-title">1. Japa / Chanting</div>
-                    <div className="activity-meta">
-                      {selectedDay.japaRounds > 0
-                        ? `${selectedDay.japaRounds} Challenge Rounds Chanted (over baseline)`
-                        : selectedDay.isPast
-                        ? 'No chanting rounds recorded for this day'
-                        : selectedDay.isToday
-                        ? 'Not recorded yet today (due before midnight)'
-                        : 'Scheduled practice'}
-                    </div>
+                    {selectedDay.japaRounds > 0 && (
+                      <div className="activity-meta">
+                        {selectedDay.japaRounds} Challenge Rounds
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -660,15 +671,11 @@ export const SadhanaCalendar = ({
                   </div>
                   <div>
                     <div className="activity-title">2. Sacred Reading</div>
-                    <div className="activity-meta">
-                      {selectedDay.readingMinutes > 0
-                        ? `${selectedDay.readingMinutes} Minutes Prabhupada Literature Read`
-                        : selectedDay.isPast
-                        ? 'No reading time recorded for this day'
-                        : selectedDay.isToday
-                        ? 'Not recorded yet today (due before midnight)'
-                        : 'Scheduled practice'}
-                    </div>
+                    {selectedDay.readingMinutes > 0 && (
+                      <div className="activity-meta">
+                        {selectedDay.readingMinutes} Minutes Read
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -694,31 +701,27 @@ export const SadhanaCalendar = ({
                 </div>
               </div>
 
-              {/* Activity 3: Session Attendance */}
-              <div className="modal-activity-card">
-                <div className="activity-card-left">
-                  <div className="activity-type-icon session-bg">
-                    <Users size={18} color="#0369A1" />
-                  </div>
-                  <div>
-                    <div className="activity-title">3. Shravanam Session Attendance</div>
-                    <div className="activity-meta">
-                      {selectedDay.session ? (
-                        <div>
-                          <strong>{selectedDay.session.title}</strong>
+              {/* Activity 3: Shravanam Session Attendance (Only rendered if session exists on this day) */}
+              {selectedDay.session && (
+                <div className="modal-activity-card">
+                  <div className="activity-card-left">
+                    <div className="activity-type-icon session-bg">
+                      <Users size={18} color="#0369A1" />
+                    </div>
+                    <div>
+                      <div className="activity-title">3. Shravanam Session</div>
+                      <div className="activity-meta">
+                        <strong>{selectedDay.session.title}</strong>
+                        {selectedDay.session.speaker && (
                           <div style={{ fontSize: '0.74rem', color: 'var(--cal-text-muted)' }}>
-                            Speaker: {selectedDay.session.speaker} • {selectedDay.session.topic}
+                            Speaker: {selectedDay.session.speaker}
                           </div>
-                        </div>
-                      ) : (
-                        'No group reading session scheduled on this date'
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="activity-card-right">
-                  {selectedDay.session ? (
+                  <div className="activity-card-right">
                     <span className={`status-pill pill-${selectedDay.sessionStatus}`}>
                       {selectedDay.session.attended ? (
                         <>
@@ -728,7 +731,7 @@ export const SadhanaCalendar = ({
                       ) : selectedDay.sessionStatus === 'missed' ? (
                         <>
                           <AlertCircle size={13} />
-                          Not Attended
+                          Missed
                         </>
                       ) : (
                         <>
@@ -737,13 +740,9 @@ export const SadhanaCalendar = ({
                         </>
                       )}
                     </span>
-                  ) : (
-                    <span className="status-pill pill-no-session">
-                      No Session Scheduled
-                    </span>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Authorized Adjustments if any */}
               {selectedDay.adjustments.length > 0 && (
@@ -764,25 +763,19 @@ export const SadhanaCalendar = ({
               )}
             </div>
 
-            {/* Total Points Footer */}
+            {/* Total Points Footer (Close Details button removed) */}
             <div className="modal-points-footer">
-              <div>
-                <div style={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--cal-text-muted)' }}>
-                  Total Points on this Date
-                </div>
-                <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--cal-forest-dark)', lineHeight: 1.1 }}>
-                  {selectedDay.totalPoints}{' '}
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--cal-text-muted)' }}>Points</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--cal-text-muted)' }}>
+                    Total Points Earned
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--cal-forest-dark)', lineHeight: 1.1 }}>
+                    +{selectedDay.totalPoints}{' '}
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--cal-text-muted)' }}>Points</span>
+                  </div>
                 </div>
               </div>
-
-              <button
-                type="button"
-                className="btn-cal-forest"
-                onClick={() => setSelectedDay(null)}
-              >
-                Close Details
-              </button>
             </div>
           </div>
         </div>

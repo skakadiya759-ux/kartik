@@ -112,8 +112,8 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       return;
     }
 
-    if (rounds < 0 || rounds > 64) {
-      setFeedback({ type: 'error', message: 'Chanting rounds must be between 0 and 64.' });
+    if (rounds < 0 || rounds > 128) {
+      setFeedback({ type: 'error', message: 'Chanting rounds must be between 0 and 128.' });
       return;
     }
 
@@ -227,6 +227,54 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
         </div>
       </section>
 
+      {/* GUEST BANNER: WANT YOUR ROUNDS AND READING MINUTES TO COUNT? (ABOVE DAILY SADHANA) */}
+      {!currentUser && (
+        <div
+          className="guest-count-banner"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255, 247, 237, 0.95) 0%, rgba(254, 243, 199, 0.9) 100%)',
+            border: '1.5px solid rgba(234, 88, 12, 0.25)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.25rem 1.6rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            boxShadow: '0 4px 16px rgba(234, 88, 12, 0.08)',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1C1917' }}>
+              Want your rounds and reading minutes to count?
+            </div>
+            <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              Join fellow students from FOLK PDEU, FOLK Infocity, and Local ISKCON on the live leaderboard.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <button
+              className="btn-glass-secondary"
+              style={{ padding: '0.5rem 1.15rem', fontSize: '0.86rem' }}
+              onClick={() => onNavigate('login')}
+            >
+              <LogIn size={15} />
+              Sign In
+            </button>
+            <button
+              className="btn-glass-primary"
+              style={{ padding: '0.5rem 1.15rem', fontSize: '0.86rem' }}
+              onClick={() => onNavigate('register')}
+            >
+              <UserPlus size={15} />
+              Register
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 2. SADHANA ENTRY SECTION */}
       <section id="sadhana-entry-section" className="sadhana-card">
         <div className="sadhana-card-header">
@@ -284,18 +332,18 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 <input
                   type="number"
                   min="0"
-                  max="64"
+                  max="128"
                   className="stepper-input"
                   value={rounds}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10);
-                    setRounds(isNaN(val) ? 0 : Math.max(0, Math.min(64, val)));
+                    setRounds(isNaN(val) ? 0 : Math.max(0, Math.min(128, val)));
                   }}
                 />
                 <button
                   type="button"
                   className="stepper-btn"
-                  onClick={() => setRounds((prev) => Math.min(64, prev + 1))}
+                  onClick={() => setRounds((prev) => Math.min(128, prev + 1))}
                   aria-label="Increase rounds"
                 >
                   +
@@ -304,14 +352,14 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
 
               {/* Quick Selectors */}
               <div className="sadhana-quick-chips">
-                {[4, 8, 16].map((rVal) => (
+                {[4, 8, 16, 32, 64, 128].map((rVal) => (
                   <button
                     key={rVal}
                     type="button"
                     className="quick-chip"
                     onClick={() => setRounds(rVal)}
                   >
-                    {rVal} Rounds
+                    {rVal} rds
                   </button>
                 ))}
               </div>
@@ -410,49 +458,6 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
           </div>
         </form>
 
-        {/* Guest Sign-in Promotion */}
-        {!currentUser && (
-          <div
-            style={{
-              marginTop: '1.75rem',
-              paddingTop: '1.5rem',
-              borderTop: '1px solid rgba(28, 25, 23, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem',
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                Want your rounds and reading minutes to count?
-              </div>
-              <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                Join fellow students from FOLK PDEU, FOLK Infocity, and Local ISKCON.
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                className="btn-glass-secondary"
-                style={{ padding: '0.45rem 1rem', fontSize: '0.84rem' }}
-                onClick={() => onNavigate('login')}
-              >
-                <LogIn size={14} />
-                Sign In
-              </button>
-              <button
-                className="btn-glass-primary"
-                style={{ padding: '0.45rem 1rem', fontSize: '0.84rem' }}
-                onClick={() => onNavigate('register')}
-              >
-                <UserPlus size={14} />
-                Register
-              </button>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* 3. PERSONAL SADHANA CALENDAR */}

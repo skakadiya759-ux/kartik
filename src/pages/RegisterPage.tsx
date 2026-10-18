@@ -38,8 +38,8 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
     }
 
     const baseline = parseInt(baselineRounds, 10);
-    if (isNaN(baseline) || baseline < 0 || baseline > 64) {
-      setError('Baseline daily rounds must be between 0 and 64');
+    if (isNaN(baseline) || baseline < 0 || baseline > 128) {
+      setError('Baseline daily rounds must be between 0 and 128');
       return;
     }
 
@@ -202,7 +202,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
               <input
                 type="number"
                 min="0"
-                max="64"
+                max="128"
                 className="input-glass"
                 style={{ paddingLeft: '2.4rem' }}
                 value={baselineRounds}

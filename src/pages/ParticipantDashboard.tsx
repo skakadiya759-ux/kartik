@@ -69,8 +69,8 @@ export const ParticipantDashboard = ({
     setMessage(null);
 
     const rounds = parseInt(roundsToLog, 10);
-    if (isNaN(rounds) || rounds <= 0 || rounds > 64) {
-      setMessage({ type: 'error', text: 'Please enter a valid round count between 1 and 64' });
+    if (isNaN(rounds) || rounds <= 0 || rounds > 128) {
+      setMessage({ type: 'error', text: 'Please enter a valid round count between 1 and 128' });
       return;
     }
 
@@ -328,7 +328,7 @@ export const ParticipantDashboard = ({
                   type="number"
                   className="form-input"
                   min={1}
-                  max={64}
+                  max={128}
                   value={roundsToLog}
                   onChange={(e) => setRoundsToLog(e.target.value)}
                   required
