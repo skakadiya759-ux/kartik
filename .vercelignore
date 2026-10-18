@@ -1,0 +1,6 @@
+node_modules
+.git
+.gitignore
+*.log
+test-refactor.js
+.oxlintrc.json

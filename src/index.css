@@ -1,0 +1,286 @@
+/* ==========================================================================
+   Kartik Challenge 2026 — Master Design System
+   Aesthetic: Apple-Style Glassmorphism • Light Spiritual Orange Theme • Minimalist
+   Fonts: 'Plus Jakarta Sans', 'DM Serif Display', 'Inter'
+   ========================================================================== */
+
+:root {
+  /* Warm Spiritual Light Theme Palette */
+  --bg-base: #FFFBF7;
+  --bg-warm: #FFF8F2;
+  --bg-canvas: #FAF6F0;
+  --bg-surface: #FFFFFF;
+
+  /* Primary Light Spiritual Orange */
+  --primary-orange: #FF6B00;
+  --primary-orange-hover: #EA580C;
+  --primary-orange-deep: #C2410C;
+  --primary-orange-light: #FF8A33;
+  --primary-orange-soft: #FFF2E8;
+  --primary-orange-tint: rgba(255, 107, 0, 0.08);
+  --primary-orange-border: rgba(255, 107, 0, 0.18);
+  --primary-gradient: linear-gradient(135deg, #FF7A1A 0%, #EA580C 100%);
+  --primary-gradient-subtle: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+
+  /* Secondary Accents */
+  --accent-gold: #D97706;
+  --accent-gold-soft: #FEF3C7;
+  --accent-silver: #64748B;
+  --accent-silver-soft: #F1F5F9;
+  --accent-bronze: #B45309;
+  --accent-bronze-soft: #FFEDD5;
+
+  /* Crisp Typography */
+  --text-primary: #1C1917;
+  --text-secondary: #57534E;
+  --text-muted: #8C847D;
+  --text-light: #B8B0A8;
+  --text-white: #FFFFFF;
+
+  /* Apple Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.74);
+  --glass-bg-hover: rgba(255, 255, 255, 0.88);
+  --glass-bg-darker: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-border-subtle: rgba(234, 88, 12, 0.12);
+  --glass-blur: blur(24px) saturate(190%);
+  --glass-blur-sm: blur(14px) saturate(170%);
+
+  /* Diffused Soft Shadows */
+  --shadow-subtle: 0 2px 8px -1px rgba(28, 25, 23, 0.04);
+  --shadow-glass: 0 10px 34px -4px rgba(234, 88, 12, 0.07), 0 2px 6px rgba(0, 0, 0, 0.02);
+  --shadow-glass-hover: 0 16px 42px -6px rgba(234, 88, 12, 0.14), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 0 28px rgba(255, 107, 0, 0.22);
+  --shadow-button: 0 6px 20px -2px rgba(234, 88, 12, 0.35);
+
+  /* Radii */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 9999px;
+
+  /* Typography Families */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Smooth Transitions */
+  --transition-fast: 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-bounce: 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  background-image: 
+    radial-gradient(1000px circle at 10% 5%, rgba(255, 122, 26, 0.07) 0%, transparent 60%),
+    radial-gradient(800px circle at 90% 85%, rgba(251, 146, 60, 0.06) 0%, transparent 55%),
+    radial-gradient(600px circle at 50% 50%, rgba(254, 243, 199, 0.4) 0%, transparent 70%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography Helpers */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.heading-editorial {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+/* Reusable Glass Components */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-lg);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.glass-panel-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glass-hover);
+}
+
+.glass-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(255, 247, 237, 0.88);
+  color: var(--primary-orange-deep);
+  border: 1px solid rgba(255, 122, 26, 0.22);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+}
+
+/* Apple-Style Buttons */
+.btn-glass-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.65rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  background: var(--primary-gradient);
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+  text-decoration: none;
+  user-select: none;
+}
+
+.btn-glass-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -2px rgba(234, 88, 12, 0.45);
+  filter: brightness(1.04);
+}
+
+.btn-glass-primary:active {
+  transform: translateY(0);
+}
+
+.btn-glass-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.45rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid rgba(28, 25, 23, 0.1);
+  cursor: pointer;
+  box-shadow: var(--shadow-subtle);
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.btn-glass-secondary:hover {
+  background: #FFFFFF;
+  border-color: rgba(255, 122, 26, 0.3);
+  color: var(--primary-orange);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Clean Form Controls */
+.input-glass {
+  width: 100%;
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(28, 25, 23, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-glass:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+  background: #FFFFFF;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Global Minimalist Luxury Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(234, 88, 12, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(234, 88, 12, 0.5);
+}
+
+html, body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 88, 12, 0.25) transparent;
+}
+
+/* Mobile viewport wrapper */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 4rem;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 1.25rem 1rem 5.5rem;
+  }
+}
