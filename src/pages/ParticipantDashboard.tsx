@@ -74,6 +74,22 @@ export const ParticipantDashboard = ({
       return;
     }
 
+    if (selectedDate < '2026-10-26') {
+      setMessage({
+        type: 'error',
+        text: 'Daily sadhana submissions will open on 26th October 2026 (Kartik Maha-Vrata starts).',
+      });
+      return;
+    }
+
+    if (selectedDate > '2026-11-24') {
+      setMessage({
+        type: 'error',
+        text: 'Sadhana submissions for Kartik 2026 concluded on 24th November 2026.',
+      });
+      return;
+    }
+
     if (hasLoggedSelectedDate) {
       setMessage({
         type: 'error',
@@ -303,6 +319,27 @@ export const ParticipantDashboard = ({
               </div>
             )}
 
+            {/* Start Date Banner */}
+            {todayStr < '2026-10-26' && (
+              <div className="sadhana-start-banner" style={{ marginBottom: '1.25rem' }}>
+                <div className="sadhana-start-banner-icon">
+                  <Calendar size={20} />
+                </div>
+                <div className="sadhana-start-banner-body">
+                  <div className="sadhana-start-banner-badges">
+                    <span className="badge-start-date">Challenge Starts 26th October 2026</span>
+                    <span className="badge-active-window">Active: 26 Oct – 24 Nov</span>
+                  </div>
+                  <h4 style={{ margin: '0.2rem 0', fontSize: '0.96rem', fontWeight: 800, color: 'var(--cal-forest-dark, #143A2B)' }}>
+                    Daily Sadhana Submissions Unlock on 26th Oct
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary, #44403C)', lineHeight: 1.45 }}>
+                    Your registration is confirmed with baseline <strong>{currentUser.baselineRounds} rounds/day</strong>. Submissions unlock on Day 1!
+                  </p>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleJapaSubmit}>
               <div className="form-group">
                 <label className="form-label">
@@ -314,7 +351,8 @@ export const ParticipantDashboard = ({
                   className="form-input"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={todayStr}
+                  min="2026-10-26"
+                  max="2026-11-24"
                   required
                 />
               </div>
@@ -364,7 +402,11 @@ export const ParticipantDashboard = ({
                 disabled={isSubmitting || hasLoggedSelectedDate}
               >
                 <Flame size={18} />
-                {isSubmitting ? 'Recording Sacred Rounds...' : `Submit Japa (+${parseInt(roundsToLog || '0', 10) * 5} Pts)`}
+                {todayStr < '2026-10-26'
+                  ? 'Submissions Open 26th Oct'
+                  : isSubmitting
+                  ? 'Recording Sacred Rounds...'
+                  : `Submit Japa (+${parseInt(roundsToLog || '0', 10) * 5} Pts)`}
               </button>
             </form>
           </div>

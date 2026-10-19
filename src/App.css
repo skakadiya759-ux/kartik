@@ -1218,3 +1218,147 @@
   background: rgba(255, 247, 237, 0.85);
   border-color: rgba(255, 122, 26, 0.4);
 }
+
+/* ==========================================================================
+   9. KARTIK START DATE BANNER (26TH OCT - 24TH NOV)
+   ========================================================================== */
+.sadhana-start-banner {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.88) 0%, rgba(255, 237, 213, 0.85) 100%);
+  border: 1.5px solid rgba(217, 119, 6, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.08);
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.sadhana-start-banner.banner-highlight {
+  border-color: #EA580C;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FFEDD5 100%);
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.25);
+  animation: pulseBannerHighlight 500ms ease;
+}
+
+@keyframes pulseBannerHighlight {
+  0% { transform: scale(0.985); }
+  50% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+
+.sadhana-start-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+}
+
+.sadhana-start-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sadhana-start-banner-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+
+.badge-start-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid rgba(180, 83, 9, 0.28);
+}
+
+.badge-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: rgba(234, 88, 12, 0.12);
+  color: #C2410C;
+}
+
+.badge-active-window {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: rgba(27, 77, 62, 0.1);
+  color: #1B4D3E;
+}
+
+.sadhana-start-banner-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--cal-forest-dark, #143A2B);
+  margin: 0 0 0.35rem;
+  line-height: 1.3;
+}
+
+.sadhana-start-banner-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary, #44403C);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Phone / Mobile Testing adjustments */
+@media (max-width: 640px) {
+  .sadhana-start-banner {
+    padding: 1.05rem 1.15rem;
+    gap: 0.85rem;
+    flex-direction: column;
+    border-radius: var(--radius-md);
+  }
+
+  .sadhana-start-banner-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .sadhana-start-banner-title {
+    font-size: 1rem;
+  }
+
+  .sadhana-start-banner-desc {
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .sadhana-start-banner-badges {
+    gap: 0.35rem;
+  }
+
+  .badge-start-date,
+  .badge-countdown,
+  .badge-active-window {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.55rem;
+  }
+}
+

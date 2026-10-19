@@ -221,6 +221,26 @@ const handleSadhanaSubmit = (req, res) => {
         ? date
         : new Date().toISOString().split('T')[0];
 
+    const KARTIK_START_DATE = '2026-10-26';
+    const KARTIK_END_DATE = '2026-11-24';
+
+    if (logDate < KARTIK_START_DATE) {
+      return res.status(400).json({
+        error: 'Daily sadhana submission will open on 26th October 2026 (Kartik Maha-Vrata starts).',
+        code: 'BEFORE_START_DATE',
+        startDate: KARTIK_START_DATE,
+        endDate: KARTIK_END_DATE,
+      });
+    }
+
+    if (logDate > KARTIK_END_DATE) {
+      return res.status(400).json({
+        error: 'Daily sadhana submissions for Kartik 2026 concluded on 24th November 2026.',
+        code: 'AFTER_END_DATE',
+        endDate: KARTIK_END_DATE,
+      });
+    }
+
     const roundCount = Math.max(0, parseInt(rounds, 10) || 0);
     const readingMin = Math.max(0, parseInt(readingMinutes, 10) || 0);
 

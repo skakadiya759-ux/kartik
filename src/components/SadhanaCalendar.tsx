@@ -517,9 +517,8 @@ export const SadhanaCalendar = ({
             return (
               <div
                 key={day.date}
-                className={`calendar-day-cell ${day.isCurrentMonth ? 'in-month' : 'out-month'} ${
-                  day.isToday ? 'is-today' : ''
-                } ${isSelected ? 'is-selected' : ''}`}
+                className={`calendar-day-cell ${day.isCurrentMonth ? 'in-month' : 'out-month'} ${day.isToday ? 'is-today' : ''
+                  } ${isSelected ? 'is-selected' : ''}`}
                 onClick={() => setSelectedDay(day)}
                 role="button"
                 tabIndex={0}
@@ -604,7 +603,11 @@ export const SadhanaCalendar = ({
                     {formatFullDate(selectedDay.date)}
                   </h3>
                   <div style={{ fontSize: '0.76rem', color: 'var(--cal-text-muted)', marginTop: '0.15rem' }}>
-                    {selectedDay.isToday
+                    {selectedDay.date < '2026-10-26'
+                      ? 'Pre-Challenge Date • Starts 26th October'
+                      : selectedDay.date > '2026-11-24'
+                      ? 'Post-Challenge Date'
+                      : selectedDay.isToday
                       ? 'Today • Active Practice Day'
                       : selectedDay.isFuture
                       ? 'Upcoming Date'
@@ -648,6 +651,11 @@ export const SadhanaCalendar = ({
                         <CheckCircle2 size={13} />
                         Completed (+{selectedDay.japaPoints} pts)
                       </>
+                    ) : selectedDay.date < '2026-10-26' ? (
+                      <>
+                        <Clock size={13} />
+                        Starts 26th Oct
+                      </>
                     ) : selectedDay.japaStatus === 'missed' ? (
                       <>
                         <AlertCircle size={13} />
@@ -685,6 +693,11 @@ export const SadhanaCalendar = ({
                       <>
                         <CheckCircle2 size={13} />
                         Completed (+{selectedDay.readingPoints} pts)
+                      </>
+                    ) : selectedDay.date < '2026-10-26' ? (
+                      <>
+                        <Clock size={13} />
+                        Starts 26th Oct
                       </>
                     ) : selectedDay.readingStatus === 'missed' ? (
                       <>
@@ -802,12 +815,16 @@ function buildDayDetails(
   const session = sessionByDate.get(dateStr) || null;
   const adjustments = adjustmentsByDate.get(dateStr) || [];
 
+  const KARTIK_START = '2026-10-26';
+  const KARTIK_END = '2026-11-24';
+  const isWithinChallenge = dateStr >= KARTIK_START && dateStr <= KARTIK_END;
+
   // Japa
   const japaRounds = japaRec?.challengeRounds || 0;
   let japaStatus: ActivityStatus = 'pending';
   if (japaRounds > 0) {
     japaStatus = 'completed';
-  } else if (isPast) {
+  } else if (isPast && isWithinChallenge) {
     japaStatus = 'missed';
   } else {
     japaStatus = 'pending';
@@ -819,7 +836,7 @@ function buildDayDetails(
   let readingStatus: ActivityStatus = 'pending';
   if (readingMinutes > 0) {
     readingStatus = 'completed';
-  } else if (isPast) {
+  } else if (isPast && isWithinChallenge) {
     readingStatus = 'missed';
   } else {
     readingStatus = 'pending';
@@ -833,7 +850,7 @@ function buildDayDetails(
     if (session.attended) {
       sessionStatus = 'completed';
       sessionPoints = session.points || 10;
-    } else if (isPast) {
+    } else if (isPast && isWithinChallenge) {
       sessionStatus = 'missed';
       sessionPoints = 0;
     } else {

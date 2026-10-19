@@ -9,6 +9,16 @@
       "baselineRounds": 16,
       "role": "admin",
       "createdAt": "2026-10-01T04:30:00.000Z"
+    },
+    {
+      "id": "usr_1792376848741",
+      "name": "smit",
+      "mobile": "+919825105867",
+      "passwordHash": "$2b$10$gEjXTXzT91cYwTk7V6QkpepIGKtv1PjD8tO4aFtc.dOkHtZTvI0S.",
+      "centre": "FOLK PDEU",
+      "baselineRounds": 4,
+      "role": "participant",
+      "createdAt": "2026-10-19T02:27:28.741Z"
     }
   ],
   "sessions": [],

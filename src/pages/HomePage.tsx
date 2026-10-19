@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, CheckCircle2, LogIn, UserPlus } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Sparkles, ChevronLeft, ChevronRight, CheckCircle2, LogIn, UserPlus, Calendar, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { SadhanaCalendar } from '../components/SadhanaCalendar';
@@ -25,6 +25,31 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
   const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState<number>(0);
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const KARTIK_START_DATE = '2026-10-26';
+  const KARTIK_END_DATE = '2026-11-24';
+  const isBeforeStart = todayStr < KARTIK_START_DATE;
+  const isAfterEnd = todayStr > KARTIK_END_DATE;
+  const [triedBeforeStart, setTriedBeforeStart] = useState<boolean>(false);
+
+  // Dynamic countdown days until 26th October
+  const daysUntilStart = useMemo(() => {
+    try {
+      const [ty, tm, td] = todayStr.split('-').map(Number);
+      const [sy, sm, sd] = KARTIK_START_DATE.split('-').map(Number);
+      const tDate = new Date(ty, tm - 1, td);
+      const sDate = new Date(sy, sm - 1, sd);
+      const diffTime = sDate.getTime() - tDate.getTime();
+      return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 7;
+    }
+  }, [todayStr]);
+
+  const notifyPreStart = () => {
+    if (isBeforeStart && !triedBeforeStart) {
+      setTriedBeforeStart(true);
+    }
+  };
 
   const banners = [
     {
@@ -103,6 +128,25 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
   const handleSubmitSadhana = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
+
+    if (isBeforeStart) {
+      setTriedBeforeStart(true);
+      setFeedback({
+        type: 'error',
+        message: `Daily sadhana submissions will open on 26th October 2026 (${daysUntilStart > 0 ? `${daysUntilStart} days remaining` : 'soon'}). New devotee registrations are open now!`,
+      });
+      const bannerEl = document.getElementById('sadhana-start-notice-banner');
+      if (bannerEl) bannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (isAfterEnd) {
+      setFeedback({
+        type: 'error',
+        message: `Sadhana submission for Kartik 2026 concluded on 24th November 2026. Thank you for your sincere devotional service!`,
+      });
+      return;
+    }
 
     if (!currentUser) {
       setFeedback({
@@ -312,6 +356,73 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
           )}
         </div>
 
+        {/* START DATE BANNER: SHOWS START DATE (26TH OCT TO 24TH NOV) */}
+        {isBeforeStart && (
+          <div
+            id="sadhana-start-notice-banner"
+            className={`sadhana-start-banner animate-fade-in ${triedBeforeStart ? 'banner-highlight' : ''}`}
+          >
+            <div className="sadhana-start-banner-icon">
+              <Calendar size={22} />
+            </div>
+
+            <div className="sadhana-start-banner-body">
+              <div className="sadhana-start-banner-badges">
+                <span className="badge-start-date">
+                  <Sparkles size={12} />
+                  Challenge Begins: 26th October 2026
+                </span>
+                {daysUntilStart > 0 && (
+                  <span className="badge-countdown">
+                    <Clock size={12} />
+                    {daysUntilStart} {daysUntilStart === 1 ? 'day' : 'days'} to go
+                  </span>
+                )}
+                <span className="badge-active-window">
+                  Active Period: 26 Oct – 24 Nov
+                </span>
+              </div>
+
+              <h3 className="sadhana-start-banner-title">
+                Daily Sadhana Submissions Open on 26th October
+              </h3>
+
+              <p className="sadhana-start-banner-desc">
+                Daily chanting rounds and reading minutes will be counted starting <strong>26th October 2026</strong>.
+                New registrations are open now so you can prepare your baseline and start strong on Day 1!
+              </p>
+
+              {!currentUser ? (
+                <div style={{ marginTop: '0.85rem', display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-glass-primary"
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.84rem' }}
+                    onClick={() => onNavigate('register')}
+                  >
+                    <UserPlus size={14} />
+                    Register for Day 1
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-glass-secondary"
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.84rem' }}
+                    onClick={() => onNavigate('login')}
+                  >
+                    <LogIn size={14} />
+                    Sign In
+                  </button>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.84rem', color: '#065F46', fontWeight: 700 }}>
+                  <CheckCircle2 size={16} color="#10B981" />
+                  Your registration is confirmed. Submissions unlock on 26th October!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmitSadhana}>
           <div className="sadhana-fields-grid">
             {/* Field 1: Chanting */}
@@ -324,7 +435,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 <button
                   type="button"
                   className="stepper-btn"
-                  onClick={() => setRounds((prev) => Math.max(0, prev - 1))}
+                  onClick={() => {
+                    notifyPreStart();
+                    setRounds((prev) => Math.max(0, prev - 1));
+                  }}
                   aria-label="Decrease rounds"
                 >
                   −
@@ -335,7 +449,9 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                   max="128"
                   className="stepper-input"
                   value={rounds}
+                  onFocus={notifyPreStart}
                   onChange={(e) => {
+                    notifyPreStart();
                     const val = parseInt(e.target.value, 10);
                     setRounds(isNaN(val) ? 0 : Math.max(0, Math.min(128, val)));
                   }}
@@ -343,7 +459,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 <button
                   type="button"
                   className="stepper-btn"
-                  onClick={() => setRounds((prev) => Math.min(128, prev + 1))}
+                  onClick={() => {
+                    notifyPreStart();
+                    setRounds((prev) => Math.min(128, prev + 1));
+                  }}
                   aria-label="Increase rounds"
                 >
                   +
@@ -357,7 +476,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                     key={rVal}
                     type="button"
                     className="quick-chip"
-                    onClick={() => setRounds(rVal)}
+                    onClick={() => {
+                      notifyPreStart();
+                      setRounds(rVal);
+                    }}
                   >
                     {rVal} rds
                   </button>
@@ -375,7 +497,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 <button
                   type="button"
                   className="stepper-btn"
-                  onClick={() => setReadingMinutes((prev) => Math.max(0, prev - 5))}
+                  onClick={() => {
+                    notifyPreStart();
+                    setReadingMinutes((prev) => Math.max(0, prev - 5));
+                  }}
                   aria-label="Decrease minutes"
                 >
                   −
@@ -386,7 +511,9 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                   max="720"
                   className="stepper-input"
                   value={readingMinutes}
+                  onFocus={notifyPreStart}
                   onChange={(e) => {
+                    notifyPreStart();
                     const val = parseInt(e.target.value, 10);
                     setReadingMinutes(isNaN(val) ? 0 : Math.max(0, Math.min(720, val)));
                   }}
@@ -394,7 +521,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 <button
                   type="button"
                   className="stepper-btn"
-                  onClick={() => setReadingMinutes((prev) => Math.min(720, prev + 5))}
+                  onClick={() => {
+                    notifyPreStart();
+                    setReadingMinutes((prev) => Math.min(720, prev + 5));
+                  }}
                   aria-label="Increase minutes"
                 >
                   +
@@ -408,7 +538,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                     key={mVal}
                     type="button"
                     className="quick-chip"
-                    onClick={() => setReadingMinutes(mVal)}
+                    onClick={() => {
+                      notifyPreStart();
+                      setReadingMinutes(mVal);
+                    }}
                   >
                     {mVal} min
                   </button>
@@ -445,9 +578,15 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
               type="submit"
               className="btn-glass-primary"
               disabled={isSubmitting}
-              style={{ minWidth: '180px' }}
+              style={{ minWidth: '200px' }}
             >
-              {isSubmitting ? 'Recording...' : todayRecord ? 'Update Today\'s Entry' : 'Submit Sadhana'}
+              {isBeforeStart
+                ? 'Submissions Open 26th Oct'
+                : isSubmitting
+                ? 'Recording...'
+                : todayRecord
+                ? 'Update Today\'s Entry'
+                : 'Submit Sadhana'}
             </button>
 
             {!currentUser && (
