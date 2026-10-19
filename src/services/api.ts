@@ -90,6 +90,16 @@ class ApiService {
     return res;
   }
 
+  async resetPassword(
+    identifier: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, newPassword }),
+    });
+  }
+
   async getMe(): Promise<{ user: Participant }> {
     return this.request<{ user: Participant }>('/auth/me');
   }
@@ -212,6 +222,12 @@ class ApiService {
     return this.request<{ message: string; adjustment: PointAdjustment }>('/admin/adjust-points', {
       method: 'POST',
       body: JSON.stringify({ participantId, points, reason: reason || 'Admin point adjustment' }),
+    });
+  }
+
+  async deleteParticipant(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/admin/participants/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
     });
   }
 

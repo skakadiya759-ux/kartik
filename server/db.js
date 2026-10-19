@@ -91,7 +91,17 @@ class Database {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      const serialized = JSON.stringify(this.data, null, 2);
+      fs.writeFileSync(DB_FILE, serialized, 'utf-8');
+
+      // Also sync to SEED_FILE if different to preserve data across serverless builds
+      if (SEED_FILE !== DB_FILE && fs.existsSync(path.dirname(SEED_FILE))) {
+        try {
+          fs.writeFileSync(SEED_FILE, serialized, 'utf-8');
+        } catch {
+          // ignore seed write failure in readonly environments
+        }
+      }
     } catch (err) {
       console.warn('Could not persist database to disk (operating in-memory):', err.message);
     }
@@ -107,13 +117,93 @@ class Database {
   }
 
   findParticipantByMobile(mobile) {
-    return this.data.participants.find((p) => p.mobile === mobile);
+    if (!mobile) return null;
+    const cleanSearch = String(mobile).replace(/\D/g, '');
+    const search10 = cleanSearch.slice(-10);
+
+    return this.data.participants.find((p) => {
+      if (!p.mobile) return false;
+      const pClean = String(p.mobile).replace(/\D/g, '');
+      const p10 = pClean.slice(-10);
+      return (search10.length === 10 && p10 === search10) || p.mobile === mobile;
+    });
+  }
+
+  findParticipantByIdentifier(identifier) {
+    if (!identifier) return null;
+    const raw = String(identifier).trim();
+    if (!raw) return null;
+
+    // 1. Try by phone number (last 10 digits)
+    const cleanDigits = raw.replace(/\D/g, '');
+    if (cleanDigits.length >= 10) {
+      const byPhone = this.findParticipantByMobile(cleanDigits);
+      if (byPhone) return byPhone;
+    }
+
+    // 2. Try by Devotee Name (case-insensitive exact or trimmed)
+    const lower = raw.toLowerCase();
+    const byName = this.data.participants.find(
+      (p) => p.name && p.name.trim().toLowerCase() === lower
+    );
+    if (byName) return byName;
+
+    // 3. Try partial mobile if user typed 7-9 digits
+    if (cleanDigits.length >= 6) {
+      const byPartial = this.data.participants.find((p) => {
+        const pClean = String(p.mobile || '').replace(/\D/g, '');
+        return pClean.includes(cleanDigits);
+      });
+      if (byPartial) return byPartial;
+    }
+
+    // 4. Admin special identifier or email
+    if (raw.includes('@') || lower === 'admin') {
+      return this.data.participants.find((p) => p.role === 'admin');
+    }
+
+    return null;
+  }
+
+  updateParticipantPassword(participantId, newPasswordHash) {
+    const p = this.findParticipantById(participantId);
+    if (p) {
+      p.passwordHash = newPasswordHash;
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   addParticipant(participant) {
     this.data.participants.push(participant);
     this.save();
     return participant;
+  }
+
+  deleteParticipant(id) {
+    const initialCount = this.data.participants.length;
+    this.data.participants = this.data.participants.filter((p) => p.id !== id);
+
+    if (this.data.participants.length < initialCount) {
+      // Clean up their associated sadhana records, adjustments, and session attendances
+      if (Array.isArray(this.data.japaRecords)) {
+        this.data.japaRecords = this.data.japaRecords.filter((r) => r.participantId !== id);
+      }
+      if (Array.isArray(this.data.adjustments)) {
+        this.data.adjustments = this.data.adjustments.filter((a) => a.participantId !== id);
+      }
+      if (Array.isArray(this.data.sessions)) {
+        this.data.sessions.forEach((s) => {
+          if (Array.isArray(s.attendedParticipantIds)) {
+            s.attendedParticipantIds = s.attendedParticipantIds.filter((pId) => pId !== id);
+          }
+        });
+      }
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   // Japa & Sadhana Records

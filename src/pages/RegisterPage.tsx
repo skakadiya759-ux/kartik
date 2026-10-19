@@ -1,5 +1,16 @@
 import { useState } from 'react';
-import { Phone, User, MapPin, Hash, Lock, AlertCircle, UserPlus } from 'lucide-react';
+import {
+  Phone,
+  User,
+  MapPin,
+  Hash,
+  Lock,
+  AlertCircle,
+  UserPlus,
+  Eye,
+  EyeOff,
+  ArrowRight,
+} from 'lucide-react';
 import { api } from '../services/api';
 import type { CentreType, Participant } from '../types';
 
@@ -14,18 +25,25 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
   const [centre, setCentre] = useState<CentreType>('FOLK PDEU');
   const [baselineRounds, setBaselineRounds] = useState('4');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Validate Indian mobile
+  // Validate Indian mobile (allows 10 digits, leading 0, or +91)
   const isValidMobile = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
-    return cleaned.length === 10 && /^[6-9]/.test(cleaned);
+    return (
+      (cleaned.length === 10 && /^[6-9]/.test(cleaned)) ||
+      (cleaned.length === 11 && cleaned.startsWith('0') && /^[6-9]/.test(cleaned.slice(1))) ||
+      (cleaned.length === 12 && cleaned.startsWith('91') && /^[6-9]/.test(cleaned.slice(2)))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsAlreadyRegistered(false);
 
     if (!name.trim() || name.trim().length < 2) {
       setError('Please provide your full name (at least 2 letters)');
@@ -33,7 +51,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
     }
 
     if (!isValidMobile(mobile)) {
-      setError('Please enter a valid 10-digit Indian mobile number (e.g., 9876543210)');
+      setError('Please enter a valid 10-digit Indian mobile number (e.g. 9825105867)');
       return;
     }
 
@@ -62,7 +80,11 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
       onSuccess(response.user);
     } catch (err: unknown) {
       const errorObj = err as Error;
-      setError(errorObj.message || 'Registration failed. Please try again.');
+      const msg = errorObj.message || 'Registration failed. Please try again.';
+      setError(msg);
+      if (msg.toLowerCase().includes('already registered')) {
+        setIsAlreadyRegistered(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,20 +122,38 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
         {error && (
           <div
             style={{
-              padding: '0.75rem 1rem',
+              padding: '0.85rem 1rem',
               borderRadius: 'var(--radius-md)',
               marginBottom: '1.25rem',
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
               color: '#991B1B',
-              fontSize: '0.86rem',
+              fontSize: '0.88rem',
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: 'column',
               gap: '0.5rem',
             }}
           >
-            <AlertCircle size={16} />
-            <span>{error}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+            {isAlreadyRegistered && (
+              <button
+                type="button"
+                onClick={onNavigateToLogin}
+                className="btn-spiritual btn-secondary btn-sm"
+                style={{
+                  alignSelf: 'flex-start',
+                  marginTop: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                }}
+              >
+                Sign In Now with this Mobile <ArrowRight size={14} />
+              </button>
+            )}
           </div>
         )}
 
@@ -131,7 +171,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
               />
               <input
                 type="text"
-                placeholder="e.g. Radhavallabh Das / Krishna Priya"
+                placeholder="e.g. Radhavallabh Das / Smit"
                 className="input-glass"
                 style={{ paddingLeft: '2.4rem' }}
                 value={name}
@@ -154,7 +194,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
               />
               <input
                 type="tel"
-                placeholder="e.g. 9876543210"
+                placeholder="e.g. 9825105867"
                 className="input-glass"
                 style={{ paddingLeft: '2.4rem' }}
                 value={mobile}
@@ -212,7 +252,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
             </div>
           </div>
 
-          {/* Password */}
+          {/* Password with Eye Toggle */}
           <div>
             <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
               Account Password (Min 6 characters)
@@ -224,14 +264,34 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
                 style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }}
               />
               <input
-                type="password"
-                placeholder="Choose a secure password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Choose a password (min 6 chars)"
                 className="input-glass"
-                style={{ paddingLeft: '2.4rem' }}
+                style={{ paddingLeft: '2.4rem', paddingRight: '2.6rem' }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0,
+                }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

@@ -12,6 +12,7 @@ import {
   Clock,
   Check,
   Copy,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { Participant, LeaderboardEntry, DailySadhanaRecord } from '../types';
@@ -39,6 +40,11 @@ export const ParticipantManagementPage = () => {
     'sadhana' | 'attendance' | 'appreciation'
   >('sadhana');
   const [copiedBroadcast, setCopiedBroadcast] = useState(false);
+
+  // Delete Devotee State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [devoteeToDelete, setDevoteeToDelete] = useState<ParticipantWithStats | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Modal State for Manual Adjustment
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,6 +108,28 @@ export const ParticipantManagementPage = () => {
       setTimeout(() => setCopiedBroadcast(false), 2500);
     } catch (err) {
       console.error('Failed to copy broadcast', err);
+    }
+  };
+
+  const openDeleteConfirmModal = (p: ParticipantWithStats) => {
+    setDevoteeToDelete(p);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!devoteeToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await api.deleteParticipant(devoteeToDelete.id);
+      setStatusMessage(res.message);
+      setIsDeleteModalOpen(false);
+      setDevoteeToDelete(null);
+      await fetchParticipants();
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      setStatusMessage(`Error: ${errorObj.message || 'Failed to delete devotee'}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -448,6 +476,21 @@ export const ParticipantManagementPage = () => {
                         <Edit3 size={14} />
                         Adjust Pts
                       </button>
+
+                      <button
+                        type="button"
+                        className="btn-spiritual btn-sm"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#DC2626',
+                          borderColor: 'rgba(239, 68, 68, 0.25)',
+                        }}
+                        onClick={() => openDeleteConfirmModal(p)}
+                        title={`Delete participant ${p.name}`}
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -532,6 +575,66 @@ export const ParticipantManagementPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Devotee Confirmation Modal */}
+      {isDeleteModalOpen && devoteeToDelete && (
+        <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
+          <div
+            className="modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px', padding: '1.75rem' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', color: '#991B1B', margin: 0, fontWeight: 800 }}>
+                  Delete Devotee?
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  This will permanently remove their records.
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Are you sure you want to permanently delete <strong>{devoteeToDelete.name}</strong> ({devoteeToDelete.mobile})? All their sadhana logs, challenge rounds, and points will be erased from the leaderboard.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-spiritual btn-secondary btn-sm"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-spiritual btn-sm"
+                style={{ background: '#DC2626', color: '#FFFFFF', borderColor: '#DC2626' }}
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Devotee'}
+              </button>
+            </div>
           </div>
         </div>
       )}

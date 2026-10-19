@@ -33,9 +33,12 @@ app.get('/api/health', (_req, res) => {
 // Helper: Normalize Indian Phone Number to +91XXXXXXXXXX
 function normalizeIndianMobile(raw) {
   if (!raw) return '';
-  const digits = raw.replace(/\D/g, '');
+  const digits = String(raw).replace(/\D/g, '');
   if (digits.length === 10 && /^[6-9]/.test(digits)) {
     return `+91${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('0') && /^[6-9]/.test(digits.slice(1))) {
+    return `+91${digits.slice(1)}`;
   }
   if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) {
     return `+${digits}`;
@@ -158,24 +161,22 @@ app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
 
     if (!identifier || !password) {
-      return res.status(400).json({ error: 'Mobile number/Identifier and password are required' });
+      return res.status(400).json({ error: 'Mobile number or Name and password are required' });
     }
 
-    let participant = null;
-    if (identifier.includes('@')) {
-      participant = db.getParticipants().find((p) => p.role === 'admin');
-    } else {
-      const normalized = normalizeIndianMobile(identifier) || identifier;
-      participant = db.findParticipantByMobile(normalized);
-    }
+    const participant = db.findParticipantByIdentifier(identifier);
 
     if (!participant) {
-      return res.status(401).json({ error: 'User not found. Please check your credentials or register.' });
+      return res.status(401).json({
+        error: `No account found for "${identifier}". Please check your mobile or name, or register.`,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, participant.passwordHash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
+      return res.status(401).json({
+        error: 'Invalid password. Please check your credentials or reset password.',
+      });
     }
 
     const token = jwt.sign(
@@ -193,6 +194,39 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error during login' });
+  }
+});
+
+// Reset / Change Password (for participants who forgot or mistyped password)
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { identifier, newPassword } = req.body;
+
+    if (!identifier || !newPassword) {
+      return res.status(400).json({ error: 'Registered mobile number or name and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    const participant = db.findParticipantByIdentifier(identifier);
+    if (!participant) {
+      return res.status(404).json({
+        error: `No devotee found for "${identifier}". Please register first.`,
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+    db.updateParticipantPassword(participant.id, newHash);
+
+    res.json({
+      message: `Password reset successfully for ${participant.name}! You can now log in.`,
+    });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
@@ -495,6 +529,34 @@ app.post('/api/admin/adjust-points', requireAdmin, (req, res) => {
 app.get('/api/admin/audit-logs', requireAdmin, (req, res) => {
   const adjustments = db.getAdjustments();
   res.json({ auditLogs: adjustments });
+});
+
+// Admin: Delete Participant
+app.delete('/api/admin/participants/:id', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const participant = db.findParticipantById(id);
+
+    if (!participant) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+
+    if (participant.role === 'admin') {
+      return res.status(403).json({ error: 'Central Admin accounts cannot be deleted' });
+    }
+
+    const deleted = db.deleteParticipant(id);
+    if (!deleted) {
+      return res.status(500).json({ error: 'Failed to delete participant' });
+    }
+
+    res.json({
+      message: `Devotee "${participant.name}" (${participant.mobile}) has been deleted successfully.`,
+    });
+  } catch (err) {
+    console.error('Participant deletion error:', err);
+    res.status(500).json({ error: 'Internal server error while deleting participant' });
+  }
 });
 
 // ==========================================
