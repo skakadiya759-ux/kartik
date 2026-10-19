@@ -17,6 +17,7 @@ import {
   Phone,
   MapPin,
   Calendar,
+  Users,
 } from 'lucide-react';
 import type { Participant } from '../types';
 
@@ -119,6 +120,13 @@ export const Navbar = ({
                 >
                   <Trophy size={14} />
                   <span>Leaderboard</span>
+                </button>
+                <button
+                  className={`nav-tab-link ${currentPage === 'admin-participants' ? 'active' : ''}`}
+                  onClick={() => onNavigate('admin-participants')}
+                >
+                  <Users size={14} />
+                  <span>Devotees</span>
                 </button>
                 <button
                   className={`nav-tab-link ${currentPage === 'admin-attendance' ? 'active' : ''}`}

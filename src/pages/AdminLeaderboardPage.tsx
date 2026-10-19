@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Filter, Pencil, Search, RefreshCw, X, CheckCircle2, Plus, Minus, Calendar as CalendarIcon } from 'lucide-react';
+import { Filter, Pencil, Search, RefreshCw, X, CheckCircle2, Plus, Minus, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 import { SadhanaCalendar } from '../components/SadhanaCalendar';
 import type { LeaderboardEntry } from '../types';
@@ -20,6 +20,27 @@ export const AdminLeaderboardPage = () => {
 
   // Calendar Inspection State
   const [inspectUser, setInspectUser] = useState<LeaderboardEntry | null>(null);
+
+  // Devotee Delete State
+  const [userToDelete, setUserToDelete] = useState<LeaderboardEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteParticipant(userToDelete.participantId);
+      setUserToDelete(null);
+      await fetchLeaderboard();
+    } catch (err: unknown) {
+      const error = err as Error;
+      setDeleteError(error.message || 'Failed to delete devotee');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
 
   const fetchLeaderboard = async () => {
@@ -216,7 +237,7 @@ export const AdminLeaderboardPage = () => {
                 <th style={{ textAlign: 'center' }}>Chanted</th>
                 <th style={{ textAlign: 'center' }}>Read</th>
                 <th style={{ textAlign: 'right' }}>Score</th>
-                <th style={{ width: '80px', textAlign: 'center' }}>Edit Pts</th>
+                <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -284,6 +305,24 @@ export const AdminLeaderboardPage = () => {
                           onClick={() => handleOpenEdit(user)}
                         >
                           <Pencil size={15} />
+                        </button>
+
+                        {/* DELETE DEVOTEE BUTTON */}
+                        <button
+                          type="button"
+                          className="btn-icon-pen"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#DC2626',
+                            borderColor: 'rgba(239, 68, 68, 0.3)',
+                          }}
+                          title={`Delete devotee ${user.name}`}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setUserToDelete(user);
+                          }}
+                        >
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -480,6 +519,100 @@ export const AdminLeaderboardPage = () => {
             </div>
 
             <SadhanaCalendar targetParticipantId={inspectUser.participantId} />
+          </div>
+        </div>
+      )}
+
+      {/* DELETE DEVOTEE CONFIRMATION MODAL */}
+      {userToDelete && (
+        <div className="modal-backdrop-glass" onClick={() => !isDeleting && setUserToDelete(null)}>
+          <div
+            className="modal-content-glass"
+            style={{ maxWidth: '440px', width: '92vw', padding: '1.75rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.25rem' }}>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', color: '#991B1B', margin: 0, fontWeight: 800 }}>
+                  Delete Devotee?
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Permanent Action • Cannot be undone
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+              Are you sure you want to permanently delete <strong>{userToDelete.name}</strong> ({userToDelete.mobile})? All their sadhana logs, challenge rounds, and points will be removed from the leaderboard.
+            </p>
+
+            {deleteError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#DC2626',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <AlertTriangle size={16} />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-glass"
+                onClick={() => setUserToDelete(null)}
+                disabled={isDeleting}
+                style={{ padding: '0.55rem 1.1rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={{
+                  background: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  padding: '0.55rem 1.25rem',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                }}
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                <Trash2 size={15} />
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Devotee'}
+              </button>
+            </div>
           </div>
         </div>
       )}

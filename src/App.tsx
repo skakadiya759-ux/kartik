@@ -10,6 +10,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminLeaderboardPage } from './pages/AdminLeaderboardPage';
 import { AdminAttendancePage } from './pages/AdminAttendancePage';
+import { ParticipantManagementPage } from './pages/ParticipantManagementPage';
 import { api } from './services/api';
 import type { Participant } from './types';
 import './App.css';
@@ -19,6 +20,7 @@ export function App() {
     const clean = hash.replace(/^#\/?/, '').toLowerCase();
     if (clean === 'admin' || clean === 'admin-login') return 'admin-login';
     if (clean === 'admin-leaderboard' || clean === 'admin-portal' || clean === 'admin-dashboard') return 'admin-leaderboard';
+    if (clean === 'admin-participants' || clean === 'participants' || clean === 'devotees') return 'admin-participants';
     if (clean === 'admin-attendance' || clean === 'attendance') return 'admin-attendance';
     if (clean === 'leaderboard' || clean === 'rankings') return 'leaderboard';
     if (clean === 'rewards') return 'rewards';
@@ -85,7 +87,10 @@ export function App() {
     handleNavigate('home');
   };
 
-  const isAdminSection = currentPage === 'admin-leaderboard' || currentPage === 'admin-attendance';
+  const isAdminSection =
+    currentPage === 'admin-leaderboard' ||
+    currentPage === 'admin-participants' ||
+    currentPage === 'admin-attendance';
 
   return (
     <div className="app-container">
@@ -162,7 +167,7 @@ export function App() {
         {/* ADMIN SECTION PAGES                                           */}
         {/* ============================================================== */}
 
-        {/* 1. Admin Leaderboard: filter icon for Connected Centre + pen edit for points */}
+        {/* 1. Admin Leaderboard: filter icon for Connected Centre + pen edit for points + delete devotee */}
         {currentPage === 'admin-leaderboard' && (
           currentUser?.role === 'admin' ? (
             <AdminLeaderboardPage />
@@ -174,7 +179,19 @@ export function App() {
           )
         )}
 
-        {/* 2. Admin Attendance: top right calendar + user checklist */}
+        {/* 2. Admin Devotees / Participants: full management, WhatsApp reminders & delete */}
+        {currentPage === 'admin-participants' && (
+          currentUser?.role === 'admin' ? (
+            <ParticipantManagementPage />
+          ) : (
+            <AdminLoginPage
+              onSuccess={handleLoginSuccess}
+              onNavigateToUserLogin={() => handleNavigate('login')}
+            />
+          )
+        )}
+
+        {/* 3. Admin Attendance: top right calendar + user checklist */}
         {currentPage === 'admin-attendance' && (
           currentUser?.role === 'admin' ? (
             <AdminAttendancePage />
