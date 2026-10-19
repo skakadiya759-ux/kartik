@@ -72,9 +72,48 @@ npx vercel --prod
 
 ---
 
+## 🗄️ PostgreSQL Authoritative Storage Setup (Production Persistence)
+
+On Vercel, serverless functions are ephemeral. To ensure registrations, scores, and attendance persist permanently:
+
+### Option A: Vercel Postgres / Neon Marketplace (1-Click)
+1. Go to your project on the [Vercel Dashboard](https://vercel.com).
+2. Click the **"Storage"** tab.
+3. Click **"Connect Store"** -> Select **"Postgres"** (Neon).
+4. Follow the prompt to connect it to your `kartik-challenge` project.
+5. Vercel will automatically inject:
+   - `POSTGRES_URL`
+   - `POSTGRES_PRISMA_URL`
+   - `POSTGRES_URL_NON_POOLING`
+6. Redeploy the project.
+
+### Option B: External PostgreSQL (Neon, Supabase, Render, AWS RDS)
+1. In your Vercel Project Dashboard, navigate to **Settings** -> **Environment Variables**.
+2. Add a new variable:
+   - **Key:** `DATABASE_URL` (or `POSTGRES_URL`)
+   - **Value:** `postgres://user:password@ep-xyz.region.neon.tech/neondb?sslmode=require`
+   - **Environments:** Production, Preview, Development
+3. Click **Save** and trigger a **Redeploy**.
+
+### 🔍 Verify Authoritative Storage Engine
+Visit `https://<your-vercel-domain>/api/health`.
+
+The response should confirm:
+```json
+{
+  "status": "ok",
+  "engine": "postgres",
+  "storage": "PostgreSQL (Serverless Persistent)",
+  "connected": true,
+  "timestamp": "..."
+}
+```
+
+---
+
 ## 📁 Key Files Configured:
-- **`vercel.json`**: API rewrites (`/api/*` -> `api/index.js`) aur SPA page routing (`/index.html`).
-- **`api/index.js`**: Vercel Serverless Function entry point jo Express app ko wrap karta hai.
-- **`server/db.js`**: Serverless compatible storage (`/tmp/kartik-data/store.json`) with in-memory fallback.
-- **`server/index.js`**: Serverless export & URL normalization middleware.
-- **`.vercelignore`**: Unnecessary files ko upload hone se rokta hai.
+- **`vercel.json`**: API rewrites (`/api/*` -> `api/index.js`) and SPA page routing (`/index.html`).
+- **`api/index.js`**: Vercel Serverless Function entry point wrapping the Express application.
+- **`server/db.js`**: Authoritative PostgreSQL storage engine with safe initialization, atomic mutations, and zero data overwrites.
+- **`server/index.js`**: Pre-request database synchronization middleware and non-leaking health endpoints.
+- **`.vercelignore`**: Filters unnecessary local files from the deployment artifact.

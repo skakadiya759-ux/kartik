@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
@@ -19,6 +20,43 @@ app.use((req, _res, next) => {
     req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
   }
   next();
+});
+
+// Database Readiness & Authoritative Sync Middleware (Serverless Persistent)
+app.use(async (req, res, next) => {
+  // Allow health checks and root to report status without requiring DB initialization
+  if (req.url === '/api/health' || req.url === '/health' || req.url === '/api' || req.url === '/') {
+    return next();
+  }
+
+  try {
+    await db.ensureInitialized();
+
+    // FAIL-SAFE: Refuse serverless mutations if production DB is unconfigured
+    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      if (db.remoteEngine === 'file' && req.method !== 'GET') {
+        return res.status(503).json({
+          error:
+            'Production database is not configured. Writes are blocked to prevent data loss in ephemeral serverless storage. Please configure POSTGRES_URL.',
+          code: 'PERSISTENCE_NOT_CONFIGURED',
+          engine: db.remoteEngine,
+        });
+      }
+    }
+
+    // Synchronize latest authoritative state in PostgreSQL / KV before handling request
+    if (db.remoteEngine === 'postgres' || db.remoteEngine === 'kv') {
+      await db.syncFromAuthoritative();
+    }
+    next();
+  } catch (err) {
+    console.error('[Database Middleware] Hard stop on DB failure:', err.message);
+    return res.status(503).json({
+      error: 'Database connection unavailable. Operations halted to protect data integrity.',
+      code: 'DATABASE_UNAVAILABLE',
+      engine: db.remoteEngine,
+    });
+  }
 });
 
 // Auth Middleware
@@ -55,7 +93,7 @@ const router = express.Router();
 
 router.use((_req, res, next) => {
   res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
     'Pragma': 'no-cache',
     'Expires': '0',
     'Surrogate-Control': 'no-store',
@@ -65,11 +103,34 @@ router.use((_req, res, next) => {
 
 // Health check endpoints
 router.get('/', (_req, res) => {
-  res.json({ status: 'ok', name: 'Kartik Challenge API', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    name: 'Kartik Challenge API',
+    engine: db.remoteEngine,
+    storage:
+      db.remoteEngine === 'postgres'
+        ? 'PostgreSQL (Serverless Persistent)'
+        : db.remoteEngine === 'kv'
+          ? 'Vercel KV / Upstash Redis (Serverless Persistent)'
+          : 'Atomic File Persistence (Local/Ephemeral)',
+    connected: db.isConnected,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 router.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    engine: db.remoteEngine,
+    storage:
+      db.remoteEngine === 'postgres'
+        ? 'PostgreSQL (Serverless Persistent)'
+        : db.remoteEngine === 'kv'
+          ? 'Vercel KV / Upstash Redis (Serverless Persistent)'
+          : 'Atomic File Persistence (Local/Ephemeral)',
+    connected: db.isConnected,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ==========================================
@@ -114,9 +175,9 @@ router.post('/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    // Use mutex to serialize registration check and insertion
+    // Atomic duplicate verification and insertion using serialized mutex
     const result = await db.runExclusive(async () => {
-      // 1. Check duplicate mobile at service layer
+      // 1. Check duplicate mobile against authoritative state
       const existing = db.findParticipantByMobile(normalizedMobile);
       if (existing) {
         const err = new Error(
@@ -130,7 +191,7 @@ router.post('/auth/register', async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
-      // 3. Create participant object
+      // 3. Create participant model
       const newParticipant = {
         id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         name: name.trim(),
@@ -142,10 +203,10 @@ router.post('/auth/register', async (req, res) => {
         createdAt: new Date().toISOString(),
       };
 
-      // 4. Add to database (checks database-level unique constraint and atomically persists)
-      db.addParticipant(newParticipant);
+      // 4. Add to authoritative database (enforces db-level unique constraint and commits before returning)
+      await db.addParticipant(newParticipant);
 
-      // 5. Generate session token
+      // 5. Generate secure token
       const token = jwt.sign(
         { id: newParticipant.id, name: newParticipant.name, role: newParticipant.role },
         JWT_SECRET,
@@ -162,6 +223,9 @@ router.post('/auth/register', async (req, res) => {
       token: result.token,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
     if (err.code === 'DUPLICATE_MOBILE') {
       return res.status(409).json({ error: err.message });
     }
@@ -178,13 +242,14 @@ router.post('/auth/register', async (req, res) => {
 // Login
 router.post('/auth/login', async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const { identifier, mobile, password } = req.body;
+    const searchId = identifier || mobile;
 
-    if (!identifier || !password) {
+    if (!searchId || !password) {
       return res.status(400).json({ error: 'Mobile number or Name and password are required' });
     }
 
-    const participant = db.findParticipantByIdentifier(identifier);
+    const participant = db.findParticipantByIdentifier(searchId);
 
     if (!participant) {
       return res.status(401).json({
@@ -232,21 +297,30 @@ router.post('/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 6 characters long' });
     }
 
-    const participant = db.findParticipantByIdentifier(identifier);
-    if (!participant) {
-      return res.status(404).json({
-        error: `No devotee found for "${identifier}". Please register first.`,
-      });
-    }
+    const result = await db.runExclusive(async () => {
+      const participant = db.findParticipantByIdentifier(identifier);
+      if (!participant) {
+        const err = new Error(`No devotee found for "${identifier}". Please register first.`);
+        err.code = 'NOT_FOUND';
+        throw err;
+      }
 
-    const salt = await bcrypt.genSalt(10);
-    const newHash = await bcrypt.hash(newPassword, salt);
-    db.updateParticipantPassword(participant.id, newHash);
+      const salt = await bcrypt.genSalt(10);
+      const newHash = await bcrypt.hash(newPassword, salt);
+      await db.updateParticipantPassword(participant.id, newHash);
+      return participant.name;
+    });
 
     res.json({
-      message: `Password reset successfully for ${participant.name}! You can now log in.`,
+      message: `Password reset successfully for ${result}! You can now log in.`,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
+    if (err.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: err.message });
+    }
     console.error('Password reset error:', err);
     res.status(500).json({ error: 'Failed to reset password' });
   }
@@ -266,7 +340,7 @@ router.get('/auth/me', authenticateToken, (req, res) => {
 // 2. SADHANA SUBMISSIONS (CHANTING & READING)
 // ==========================================
 
-const handleSadhanaSubmit = (req, res) => {
+const handleSadhanaSubmit = async (req, res) => {
   try {
     const { date, rounds, readingMinutes } = req.body;
     const participantId = req.user.id;
@@ -317,11 +391,14 @@ const handleSadhanaSubmit = (req, res) => {
       });
     }
 
-    const record = db.upsertSadhanaRecord({
-      participantId,
-      date: logDate,
-      challengeRounds: roundCount,
-      readingMinutes: readingMin,
+    // Atomically upsert sadhana record in authoritative store
+    const record = await db.runExclusive(async () => {
+      return await db.upsertSadhanaRecord({
+        participantId,
+        date: logDate,
+        challengeRounds: roundCount,
+        readingMinutes: readingMin,
+      });
     });
 
     res.status(200).json({
@@ -329,6 +406,9 @@ const handleSadhanaSubmit = (req, res) => {
       record,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
     console.error('Sadhana submission error:', err);
     res.status(500).json({ error: 'Failed to record daily sadhana' });
   }
@@ -383,21 +463,27 @@ router.get('/admin/attendance', requireAdmin, (req, res) => {
 });
 
 // Admin: Set Attendance by Date
-router.post('/admin/attendance', requireAdmin, (req, res) => {
+router.post('/admin/attendance', requireAdmin, async (req, res) => {
   try {
     const { date, attendedParticipantIds } = req.body;
     if (!date || !Array.isArray(attendedParticipantIds)) {
       return res.status(400).json({ error: 'Valid date and attendedParticipantIds array required' });
     }
 
-    const session = db.setAttendanceForDate(date, attendedParticipantIds);
+    const session = await db.runExclusive(async () => {
+      return await db.setAttendanceForDate(date, attendedParticipantIds);
+    });
+
     res.json({
-      message: `Attendance updated for ${attendedParticipantIds.length} participants on ${date}`,
+      message: `Attendance updated for ${session.attendedParticipantIds.length} participants on ${date}`,
       session,
       date,
-      totalAttended: attendedParticipantIds.length,
+      totalAttended: session.attendedParticipantIds.length,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
     console.error('Attendance save error:', err);
     res.status(500).json({ error: 'Failed to update attendance' });
   }
@@ -409,19 +495,24 @@ router.get('/sessions', (req, res) => {
   res.json({ sessions });
 });
 
-router.post('/sessions/attendance', requireAdmin, (req, res) => {
+router.post('/sessions/attendance', requireAdmin, async (req, res) => {
   try {
     const { sessionId, attendedParticipantIds } = req.body;
-    const updated = db.updateSessionAttendance(sessionId, attendedParticipantIds);
+    const updated = await db.runExclusive(async () => {
+      return await db.updateSessionAttendance(sessionId, attendedParticipantIds);
+    });
     if (!updated) return res.status(404).json({ error: 'Session not found' });
     res.json({ message: 'Attendance updated', session: updated });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
     res.status(500).json({ error: 'Failed to update attendance' });
   }
 });
 
 // ==========================================
-// 4. LEADERBOARD & STATS
+// 4. LEADERBOARD & STATS (ONE SOURCE OF TRUTH)
 // ==========================================
 
 // Global & Centre-filtered Leaderboard
@@ -431,42 +522,10 @@ router.get('/leaderboard', (req, res) => {
   res.json({ leaderboard });
 });
 
-// Overall Challenge Stats
+// Overall Challenge Stats - Mathematically derived directly from authoritative active leaderboard
 router.get('/stats', (req, res) => {
-  const participants = db.getParticipants().filter((p) => p.role === 'participant');
-  const japaRecords = db.getJapaRecords();
-  const sessions = db.getSessions();
-
-  const totalJapaRounds = japaRecords.reduce((acc, curr) => acc + (curr.challengeRounds || 0), 0);
-  const totalReadingMinutes = japaRecords.reduce(
-    (acc, curr) => acc + (curr.readingMinutes || 0),
-    0
-  );
-  const totalSessionsAttended = sessions.reduce(
-    (acc, curr) => acc + (curr.attendedParticipantIds ? curr.attendedParticipantIds.length : 0),
-    0
-  );
-
-  const totalPointsDistributed =
-    totalJapaRounds * 5 +
-    totalReadingMinutes * 1 +
-    totalSessionsAttended * 10 +
-    db.getAdjustments().reduce((acc, curr) => acc + curr.points, 0);
-
-  const centreCounts = {
-    pdeu: participants.filter((p) => p.centre === 'FOLK PDEU').length,
-    infocity: participants.filter((p) => p.centre === 'FOLK Infocity').length,
-    local: participants.filter((p) => p.centre === 'Local ISKCON').length,
-  };
-
-  res.json({
-    totalParticipants: participants.length,
-    totalJapaRounds,
-    totalReadingMinutes,
-    totalSessionsAttended,
-    totalPointsDistributed,
-    centreCounts,
-  });
+  const stats = db.getStats();
+  res.json(stats);
 });
 
 // ==========================================
@@ -516,7 +575,7 @@ router.get('/admin/participants', requireAdmin, (req, res) => {
 });
 
 // Admin: Manual Point Adjustment (Add/Remove Points)
-router.post('/admin/adjust-points', requireAdmin, (req, res) => {
+router.post('/admin/adjust-points', requireAdmin, async (req, res) => {
   try {
     const { participantId, points, reason } = req.body;
     const pts = parseInt(points, 10);
@@ -527,28 +586,39 @@ router.post('/admin/adjust-points', requireAdmin, (req, res) => {
       });
     }
 
-    const participant = db.findParticipantById(participantId);
-    if (!participant) {
-      return res.status(404).json({ error: 'Participant not found' });
-    }
+    const adjustment = await db.runExclusive(async () => {
+      const participant = db.findParticipantById(participantId);
+      if (!participant) {
+        const err = new Error('Participant not found');
+        err.code = 'NOT_FOUND';
+        throw err;
+      }
 
-    const adjustment = {
-      id: `adj_${Date.now()}`,
-      participantId,
-      participantName: participant.name,
-      adminName: req.user.name || 'Admin',
-      points: pts,
-      reason: (reason || 'Admin manual point adjustment').trim(),
-      timestamp: new Date().toISOString(),
-    };
+      const adj = {
+        id: `adj_${Date.now()}`,
+        participantId,
+        participantName: participant.name,
+        adminName: req.user.name || 'Admin',
+        points: pts,
+        reason: (reason || 'Admin manual point adjustment').trim(),
+        timestamp: new Date().toISOString(),
+      };
 
-    db.addAdjustment(adjustment);
+      await db.addAdjustment(adj);
+      return { adj, participantName: participant.name };
+    });
 
     res.json({
-      message: `Points adjusted by ${pts > 0 ? '+' + pts : pts} for ${participant.name}`,
-      adjustment,
+      message: `Points adjusted by ${pts > 0 ? '+' + pts : pts} for ${adjustment.participantName}`,
+      adjustment: adjustment.adj,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
+    if (err.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: err.message });
+    }
     console.error('Point adjustment error:', err);
     res.status(500).json({ error: 'Failed to adjust points' });
   }
@@ -565,7 +635,7 @@ router.delete('/admin/participants/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await db.runExclusive(() => {
+    const result = await db.runExclusive(async () => {
       const participant = db.findParticipantById(id);
 
       if (!participant) {
@@ -583,7 +653,7 @@ router.delete('/admin/participants/:id', requireAdmin, async (req, res) => {
       const devoteeName = participant.name;
       const devoteeMobile = participant.mobile;
 
-      const deleted = db.deleteParticipant(id);
+      const deleted = await db.deleteParticipant(id);
       if (!deleted) {
         const err = new Error('Failed to delete participant from database');
         err.code = 'DELETE_FAILED';
@@ -597,6 +667,9 @@ router.delete('/admin/participants/:id', requireAdmin, async (req, res) => {
       message: `Devotee "${result.devoteeName}" (${result.devoteeMobile}) has been deleted successfully.`,
     });
   } catch (err) {
+    if (err.status === 503 || err.code === 'PERSISTENCE_NOT_CONFIGURED') {
+      return res.status(503).json({ error: err.message, code: err.code });
+    }
     if (err.code === 'NOT_FOUND') {
       return res.status(404).json({ error: err.message });
     }
