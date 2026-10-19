@@ -267,7 +267,7 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Choose a password (min 6 chars)"
                 className="input-glass"
-                style={{ paddingLeft: '2.4rem', paddingRight: '2.6rem' }}
+                style={{ paddingLeft: '2.4rem', paddingRight: '2.85rem' }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -277,20 +277,28 @@ export const RegisterPage = ({ onSuccess, onNavigateToLogin }: RegisterPageProps
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
-                  right: '0.75rem',
+                  right: '0.5rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
+                  background: showPassword ? 'rgba(234, 88, 12, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+                  border: '1px solid',
+                  borderColor: showPassword ? 'rgba(234, 88, 12, 0.3)' : 'transparent',
+                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  color: showPassword ? 'var(--primary-orange)' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   padding: 0,
+                  zIndex: 2,
+                  transition: 'all 0.15s ease',
                 }}
+                title={showPassword ? 'Hide password' : 'Show password'}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
