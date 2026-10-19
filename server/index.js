@@ -101,10 +101,24 @@ router.use((_req, res, next) => {
   next();
 });
 
-// Health check endpoints
-router.get('/', (_req, res) => {
+// Health check endpoints with real connection testing and safe diagnostics
+const handleHealthCheck = async (_req, res) => {
+  let initError = null;
+
+  if (db.remoteEngine === 'postgres' || db.remoteEngine === 'kv') {
+    if (!db.isConnected || !db.initialized) {
+      try {
+        await db.ensureInitialized();
+      } catch (err) {
+        initError = err;
+      }
+    }
+  }
+
+  const diagnostics = db.getHealthDiagnostics(initError);
+
   res.json({
-    status: 'ok',
+    status: db.isConnected || db.remoteEngine === 'file' ? 'ok' : 'degraded',
     name: 'Kartik Challenge API',
     engine: db.remoteEngine,
     storage:
@@ -114,24 +128,13 @@ router.get('/', (_req, res) => {
           ? 'Vercel KV / Upstash Redis (Serverless Persistent)'
           : 'Atomic File Persistence (Local/Ephemeral)',
     connected: db.isConnected,
+    diagnostics,
     timestamp: new Date().toISOString(),
   });
-});
+};
 
-router.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    engine: db.remoteEngine,
-    storage:
-      db.remoteEngine === 'postgres'
-        ? 'PostgreSQL (Serverless Persistent)'
-        : db.remoteEngine === 'kv'
-          ? 'Vercel KV / Upstash Redis (Serverless Persistent)'
-          : 'Atomic File Persistence (Local/Ephemeral)',
-    connected: db.isConnected,
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get('/', handleHealthCheck);
+router.get('/health', handleHealthCheck);
 
 // ==========================================
 // 1. AUTH ROUTES

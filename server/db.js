@@ -74,6 +74,7 @@ class Database {
     this.initPromise = null;
     this.isConnected = false;
     this.activeTxClient = null;
+    this.lastError = null;
 
     this.initDrivers();
     this.loadFromDiskSync();
@@ -82,25 +83,53 @@ class Database {
   initDrivers() {
     // 1. PostgreSQL / Neon / Supabase / Vercel Postgres (Priority Authoritative Persistent Store)
     const pgUrl =
+      process.env.POSTGRES_URL_NON_POOLING ||
       process.env.POSTGRES_URL ||
       process.env.DATABASE_URL ||
-      process.env.POSTGRES_PRISMA_URL ||
-      process.env.POSTGRES_URL_NON_POOLING;
+      process.env.POSTGRES_PRISMA_URL;
 
     if (pgUrl) {
       try {
         const isLocalPg = pgUrl.includes('localhost') || pgUrl.includes('127.0.0.1');
+
+        let connectionString = pgUrl;
+        let sslConfig = false;
+
+        if (!isLocalPg) {
+          // Remove any sslmode parameter from the URL query string so pg-connection-string
+          // does not override our explicit ssl options with verify-full
+          try {
+            const parsedUrl = new URL(pgUrl);
+            parsedUrl.searchParams.delete('sslmode');
+            connectionString = parsedUrl.toString();
+          } catch (_) {
+            connectionString = pgUrl.replace(/[?&]sslmode=[^&]+/gi, '');
+          }
+
+          sslConfig = {
+            rejectUnauthorized: false,
+          };
+        }
+
         this.postgresPool = new Pool({
-          connectionString: pgUrl,
-          ssl: isLocalPg ? false : { rejectUnauthorized: false },
+          connectionString,
+          ssl: sslConfig,
           max: 10,
           idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 5000,
+          connectionTimeoutMillis: 10000,
         });
+
+        this.postgresPool.on('error', (err) => {
+          console.error('[Database Pool Error]:', err.message);
+          this.isConnected = false;
+          this.lastError = err;
+        });
+
         this.remoteEngine = 'postgres';
         console.log('[Database] Authoritative Storage Engine: PostgreSQL (Serverless Persistent)');
         return;
       } catch (err) {
+        this.lastError = err;
         console.error('[Database] Failed to initialize PostgreSQL pool:', err.message);
       }
     }
@@ -149,7 +178,7 @@ class Database {
 
   // Safe first-time initialization: ensures PostgreSQL table exists and loads authoritative state
   async ensureInitialized() {
-    if (this.initialized) return;
+    if (this.initialized && this.isConnected) return;
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
@@ -159,7 +188,11 @@ class Database {
           client = await this.postgresPool.connect();
           await client.query('BEGIN');
           // Distributed transaction lock ensures only one serverless instance initializes the store
-          await client.query("SELECT pg_advisory_xact_lock(hashtext('kartik_store_init_lock'))");
+          try {
+            await client.query("SELECT pg_advisory_xact_lock(hashtext('kartik_store_init_lock')::bigint)");
+          } catch (lockErr) {
+            console.warn('[Database] Advisory lock notice in init:', lockErr.message);
+          }
 
           await client.query(`
             CREATE TABLE IF NOT EXISTS kartik_store (
@@ -182,6 +215,7 @@ class Database {
             this.data = rawPayload;
             this.sanitizeData();
             this.isConnected = true;
+            this.lastError = null;
             console.log(
               `[Database] Loaded authoritative state from PostgreSQL (${this.data.participants?.length || 0} participants)`
             );
@@ -198,6 +232,7 @@ class Database {
               [JSON.stringify(this.data)]
             );
             this.isConnected = true;
+            this.lastError = null;
             console.log('[Database] PostgreSQL initialized with clean baseline Master Admin');
           }
 
@@ -213,6 +248,7 @@ class Database {
           this.isConnected = false;
           this.initialized = false;
           this.initPromise = null;
+          this.lastError = err;
           console.error('[Database] Authoritative PostgreSQL connection failed:', err.message);
           // Hard stop: fail safely, refuse writes, do not silently fall back to local disk
           throw new Error(`Authoritative PostgreSQL connection failed: ${err.message}`);
@@ -226,11 +262,13 @@ class Database {
             this.data = remote;
             this.sanitizeData();
             this.isConnected = true;
+            this.lastError = null;
           } else if (!remote) {
             this.data = getInitialState();
             this.sanitizeData();
             await this.redisClient.set('kartik:challenge:database', this.data);
             this.isConnected = true;
+            this.lastError = null;
           } else {
             throw new Error('Authoritative KV store payload is corrupted.');
           }
@@ -238,11 +276,12 @@ class Database {
           this.isConnected = false;
           this.initialized = false;
           this.initPromise = null;
+          this.lastError = err;
           throw new Error(`Authoritative KV connection failed: ${err.message}`);
         }
       } else {
         if (!this.data) this.loadFromDiskSync();
-        this.isConnected = true;
+        this.isConnected = !isServerlessEnv();
       }
 
       this.initialized = true;
@@ -274,7 +313,11 @@ class Database {
           client = await this.postgresPool.connect();
           await client.query('BEGIN');
           // Cluster-wide distributed advisory transaction lock
-          await client.query("SELECT pg_advisory_xact_lock(hashtext('kartik_store_write_lock'))");
+          try {
+            await client.query("SELECT pg_advisory_xact_lock(hashtext('kartik_store_write_lock')::bigint)");
+          } catch (lockErr) {
+            console.warn('[Database] Advisory lock notice in write (relying on row-level FOR UPDATE lock):', lockErr.message);
+          }
 
           // Read authoritative payload under exclusive row-level lock
           const res = await client.query(
@@ -943,6 +986,69 @@ class Database {
       totalSessionsAttended,
       totalPointsDistributed,
       centreCounts,
+    };
+  }
+
+  // Sanitized health diagnostics that never leak credentials or passwords
+  getHealthDiagnostics(extraError = null) {
+    const activeError = extraError || this.lastError;
+    let errorCategory = null;
+    let sanitizedMessage = null;
+
+    if (activeError) {
+      const raw = activeError.message || String(activeError);
+      // Strip any credentials or connection strings
+      sanitizedMessage = raw.replace(/postgres(?:ql)?:\/\/[^@\s]+@/gi, 'postgres://***:***@');
+
+      const code = activeError.code || '';
+      const lower = sanitizedMessage.toLowerCase();
+
+      if (code === '28P01' || lower.includes('password authentication') || lower.includes('auth failed')) {
+        errorCategory = 'AUTHENTICATION_FAILED';
+        sanitizedMessage = 'Authentication failed. Please verify the database password and username in POSTGRES_URL.';
+      } else if (code === '3D000' || (lower.includes('database') && lower.includes('does not exist'))) {
+        errorCategory = 'DATABASE_NOT_FOUND';
+        sanitizedMessage = 'The database name specified in POSTGRES_URL does not exist.';
+      } else if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+        errorCategory = 'HOST_NOT_FOUND';
+        sanitizedMessage = 'Database host could not be resolved. Please verify host in POSTGRES_URL.';
+      } else if (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || lower.includes('timeout')) {
+        errorCategory = 'CONNECTION_TIMEOUT';
+        sanitizedMessage = 'Database connection timed out or host unreachable. Ensure host is accessible.';
+      } else if (lower.includes('ssl') || lower.includes('cert')) {
+        errorCategory = 'SSL_ERROR';
+      } else if (lower.includes('corrupted') || lower.includes('payload')) {
+        errorCategory = 'DATA_INTEGRITY_ERROR';
+      } else {
+        errorCategory = 'INITIALIZATION_FAILED';
+      }
+    }
+
+    // Extract sanitized host name if PostgreSQL is configured (WITHOUT credentials)
+    let hostInfo = null;
+    if (this.remoteEngine === 'postgres') {
+      const rawUrl =
+        process.env.POSTGRES_URL_NON_POOLING ||
+        process.env.POSTGRES_URL ||
+        process.env.DATABASE_URL ||
+        process.env.POSTGRES_PRISMA_URL;
+      if (rawUrl) {
+        try {
+          const parsed = new URL(rawUrl);
+          hostInfo = parsed.hostname;
+        } catch (_) {
+          hostInfo = 'configured';
+        }
+      }
+    }
+
+    return {
+      connected: this.isConnected,
+      engine: this.remoteEngine,
+      host: hostInfo,
+      ssl: this.remoteEngine === 'postgres' ? true : null,
+      errorCategory: this.isConnected ? null : errorCategory,
+      errorMessage: this.isConnected ? null : sanitizedMessage,
     };
   }
 }
