@@ -415,6 +415,8 @@ app.get('/api/stats', (req, res) => {
 app.get('/api/admin/participants', requireAdmin, (req, res) => {
   const participants = db.getParticipants().filter((p) => p.role === 'participant');
   const fullLeaderboard = db.calculateLeaderboard('All');
+  const queryDate = req.query.date || new Date().toISOString().split('T')[0];
+  const allJapaRecords = db.getJapaRecords();
 
   const detailed = participants.map((p) => {
     const stats = fullLeaderboard.find((l) => l.participantId === p.id) || {
@@ -429,6 +431,11 @@ app.get('/api/admin/participants', requireAdmin, (req, res) => {
       rank: '-',
     };
 
+    const todayRecord =
+      allJapaRecords.find((r) => r.participantId === p.id && r.date === queryDate) || null;
+    const submittedToday =
+      !!todayRecord && ((todayRecord.challengeRounds || 0) > 0 || (todayRecord.readingMinutes || 0) > 0);
+
     return {
       id: p.id,
       name: p.name,
@@ -436,11 +443,13 @@ app.get('/api/admin/participants', requireAdmin, (req, res) => {
       centre: p.centre,
       baselineRounds: p.baselineRounds,
       createdAt: p.createdAt,
+      submittedToday,
+      todayRecord,
       stats,
     };
   });
 
-  res.json({ participants: detailed });
+  res.json({ participants: detailed, date: queryDate });
 });
 
 // Admin: Manual Point Adjustment (Add/Remove Points)

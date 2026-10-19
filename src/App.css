@@ -1362,3 +1362,96 @@
   }
 }
 
+/* ==========================================================================
+   WhatsApp Notification & Reminder Components
+   ========================================================================== */
+.btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #FFFFFF !important;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: var(--radius-pill);
+  padding: 0.38rem 0.85rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.28);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.btn-whatsapp:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.42);
+  filter: brightness(1.05);
+}
+
+.btn-whatsapp-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #25D366;
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.35);
+  transition: all 0.18s ease;
+}
+
+.btn-whatsapp-icon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 10px rgba(37, 211, 102, 0.5);
+  background: #1EBE5D;
+}
+
+.status-pill-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.14);
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.status-pill-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.14);
+  color: #065F46;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.whatsapp-template-tab {
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(28, 25, 23, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.whatsapp-template-tab.active {
+  background: #25D366;
+  color: #FFFFFF;
+  border-color: #25D366;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.28);
+}
+

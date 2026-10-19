@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, CheckCircle2, Search, UserCheck, Shield } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Search,
+  UserCheck,
+  Shield,
+  MessageCircle,
+  Check,
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import type { AttendanceParticipant } from '../types';
+import {
+  WhatsAppReminderModal,
+  type WhatsAppTargetDevotee,
+} from '../components/WhatsAppReminderModal';
 
 export const AdminAttendancePage = () => {
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -14,6 +26,11 @@ export const AdminAttendancePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // WhatsApp Reminder State
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
+  const [whatsAppDevotee, setWhatsAppDevotee] = useState<WhatsAppTargetDevotee | null>(null);
+  const [copiedAbsent, setCopiedAbsent] = useState(false);
 
   const fetchAttendanceSheet = async (date: string) => {
     setIsLoading(true);
@@ -86,6 +103,20 @@ export const AdminAttendancePage = () => {
       p.mobile.includes(searchTerm)
   );
 
+  const absentParticipants = filtered.filter((p) => !attendedIds.includes(p.id));
+
+  const handleBroadcastAbsent = async () => {
+    const numbers = absentParticipants.map((p) => p.mobile.replace(/\D/g, '')).join(', ');
+    const msg = `Hare Krishna Devotees! 🙏\n\nToday's Kartik Shravanam & Damodarashtakam reading session (${selectedDate}) is scheduled. Please join the session and record your attendance to receive +10 spiritual points!\n👉 https://kartik-challenge.vercel.app\n\nAbsent Devotee Numbers:\n${numbers}`;
+    try {
+      await navigator.clipboard.writeText(msg);
+      setCopiedAbsent(true);
+      setTimeout(() => setCopiedAbsent(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy', err);
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in">
       {/* Header with Title on Left and Calendar on TOP-RIGHT */}
@@ -109,7 +140,7 @@ export const AdminAttendancePage = () => {
             Shravanam Attendance Sheet
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem' }}>
-            Select the date to set attendance. Mark devotees present to verify their 10 points.
+            Select the date to set attendance. Mark devotees present to verify their 10 points or send WhatsApp reminders.
           </p>
         </div>
 
@@ -179,12 +210,12 @@ export const AdminAttendancePage = () => {
           }}
         >
           {/* Summary Counts */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Attended: <span style={{ color: 'var(--primary-orange)', fontSize: '1.15rem' }}>{attendedIds.length}</span> / {participants.length}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <button
                 type="button"
                 className="quick-chip"
@@ -199,6 +230,19 @@ export const AdminAttendancePage = () => {
               >
                 Clear All
               </button>
+
+              {absentParticipants.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-whatsapp"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                  onClick={handleBroadcastAbsent}
+                  title="Copy WhatsApp reminder text for all absent devotees"
+                >
+                  {copiedAbsent ? <Check size={14} /> : <MessageCircle size={14} />}
+                  <span>{copiedAbsent ? 'Copied Broadcast!' : `Remind Absent (${absentParticipants.length})`}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -305,6 +349,26 @@ export const AdminAttendancePage = () => {
                     >
                       {isChecked ? '✓ Attended (+10 pts)' : 'Absent'}
                     </span>
+
+                    {!isChecked && (
+                      <button
+                        type="button"
+                        className="btn-whatsapp-icon"
+                        title={`Send WhatsApp session reminder to ${user.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWhatsAppDevotee({
+                            name: user.name,
+                            mobile: user.mobile,
+                            centre: user.centre,
+                            date: selectedDate,
+                          });
+                          setIsWhatsAppOpen(true);
+                        }}
+                      >
+                        <MessageCircle size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -314,8 +378,6 @@ export const AdminAttendancePage = () => {
 
         {/* Save Attendance Button */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-
-
           <button
             className="btn-glass-primary"
             onClick={handleSaveAttendance}
@@ -327,6 +389,15 @@ export const AdminAttendancePage = () => {
           </button>
         </div>
       </div>
+
+      {/* WhatsApp Reminder Modal */}
+      <WhatsAppReminderModal
+        isOpen={isWhatsAppOpen}
+        onClose={() => setIsWhatsAppOpen(false)}
+        devotee={whatsAppDevotee}
+        defaultTemplate="attendance"
+        customDate={selectedDate}
+      />
     </div>
   );
 };

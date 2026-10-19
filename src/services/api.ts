@@ -181,12 +181,27 @@ class ApiService {
   }
 
   // Admin Tools
-  async getAdminParticipants(): Promise<{
-    participants: Array<Participant & { stats: LeaderboardEntry }>;
+  async getAdminParticipants(date?: string): Promise<{
+    participants: Array<
+      Participant & {
+        stats: LeaderboardEntry;
+        submittedToday?: boolean;
+        todayRecord?: DailySadhanaRecord | null;
+      }
+    >;
+    date?: string;
   }> {
-    return this.request<{ participants: Array<Participant & { stats: LeaderboardEntry }> }>(
-      '/admin/participants'
-    );
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request<{
+      participants: Array<
+        Participant & {
+          stats: LeaderboardEntry;
+          submittedToday?: boolean;
+          todayRecord?: DailySadhanaRecord | null;
+        }
+      >;
+      date?: string;
+    }>(`/admin/participants${query}`);
   }
 
   async adjustPoints(
