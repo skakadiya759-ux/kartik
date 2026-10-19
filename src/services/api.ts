@@ -47,10 +47,16 @@ class ApiService {
       headers,
     });
 
-    const data = await response.json();
+    let data: any = {};
+    const text = await response.text();
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: text || `Server returned status ${response.status}` };
+    }
 
     if (!response.ok) {
-      throw new Error(data.error || 'Network request failed');
+      throw new Error(data.error || `Network request failed (${response.status})`);
     }
 
     return data as T;

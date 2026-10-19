@@ -21,31 +21,6 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Health check endpoint
-app.get('/api', (_req, res) => {
-  res.json({ status: 'ok', name: 'Kartik Challenge API', timestamp: new Date().toISOString() });
-});
-
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// Helper: Normalize Indian Phone Number to +91XXXXXXXXXX
-function normalizeIndianMobile(raw) {
-  if (!raw) return '';
-  const digits = String(raw).replace(/\D/g, '');
-  if (digits.length === 10 && /^[6-9]/.test(digits)) {
-    return `+91${digits}`;
-  }
-  if (digits.length === 11 && digits.startsWith('0') && /^[6-9]/.test(digits.slice(1))) {
-    return `+91${digits.slice(1)}`;
-  }
-  if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) {
-    return `+${digits}`;
-  }
-  return null;
-}
-
 // Auth Middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -75,20 +50,46 @@ function requireAdmin(req, res, next) {
   });
 }
 
+// API Router with anti-caching headers so client/CDN never serves stale records
+const router = express.Router();
+
+router.use((_req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+  });
+  next();
+});
+
+// Health check endpoints
+router.get('/', (_req, res) => {
+  res.json({ status: 'ok', name: 'Kartik Challenge API', timestamp: new Date().toISOString() });
+});
+
+router.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // ==========================================
 // 1. AUTH ROUTES
 // ==========================================
 
 // Register Participant
-app.post('/api/auth/register', async (req, res) => {
+router.post('/auth/register', async (req, res) => {
   try {
     const { name, mobile, centre, baselineRounds, password } = req.body;
 
-    if (!name || name.trim().length < 2) {
+    // Strict validation
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
       return res.status(400).json({ error: 'Full name must be at least 2 characters long' });
     }
+    if (name.trim().length > 100) {
+      return res.status(400).json({ error: 'Full name cannot exceed 100 characters' });
+    }
 
-    const normalizedMobile = normalizeIndianMobile(mobile);
+    const normalizedMobile = db.normalizeMobile(mobile);
     if (!normalizedMobile) {
       return res.status(400).json({
         error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9',
@@ -109,54 +110,73 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    if (!password || password.length < 6) {
+    if (!password || typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    // Check duplicate mobile
-    const existing = db.findParticipantByMobile(normalizedMobile);
-    if (existing) {
-      return res.status(409).json({
-        error: 'A devotee is already registered with this mobile number. Please log in instead.',
-      });
-    }
+    // Use mutex to serialize registration check and insertion
+    const result = await db.runExclusive(async () => {
+      // 1. Check duplicate mobile at service layer
+      const existing = db.findParticipantByMobile(normalizedMobile);
+      if (existing) {
+        const err = new Error(
+          'A devotee is already registered with this mobile number. Please log in instead.'
+        );
+        err.code = 'DUPLICATE_MOBILE';
+        throw err;
+      }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+      // 2. Hash password
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
 
-    const newParticipant = {
-      id: `usr_${Date.now()}`,
-      name: name.trim(),
-      mobile: normalizedMobile,
-      passwordHash,
-      centre,
-      baselineRounds: baseline,
-      role: 'participant',
-      createdAt: new Date().toISOString(),
-    };
+      // 3. Create participant object
+      const newParticipant = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        name: name.trim(),
+        mobile: normalizedMobile,
+        passwordHash,
+        centre,
+        baselineRounds: baseline,
+        role: 'participant',
+        createdAt: new Date().toISOString(),
+      };
 
-    db.addParticipant(newParticipant);
+      // 4. Add to database (checks database-level unique constraint and atomically persists)
+      db.addParticipant(newParticipant);
 
-    const token = jwt.sign(
-      { id: newParticipant.id, name: newParticipant.name, role: newParticipant.role },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
+      // 5. Generate session token
+      const token = jwt.sign(
+        { id: newParticipant.id, name: newParticipant.name, role: newParticipant.role },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
 
-    const { passwordHash: _, ...safeUser } = newParticipant;
+      const { passwordHash: _, ...safeUser } = newParticipant;
+      return { user: safeUser, token };
+    });
+
     res.status(201).json({
       message: 'Registration successful! Welcome to Kartik Challenge 2026.',
-      user: safeUser,
-      token,
+      user: result.user,
+      token: result.token,
     });
   } catch (err) {
+    if (err.code === 'DUPLICATE_MOBILE') {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err.code === 'INVALID_MOBILE') {
+      return res.status(400).json({ error: err.message });
+    }
     console.error('Registration error:', err);
-    res.status(500).json({ error: 'Internal server error during registration' });
+    res.status(500).json({
+      error: `Registration could not be completed: ${err.message || 'Internal database error'}. Please try again.`,
+    });
   }
 });
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+router.post('/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
@@ -198,12 +218,14 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Reset / Change Password (for participants who forgot or mistyped password)
-app.post('/api/auth/reset-password', async (req, res) => {
+router.post('/auth/reset-password', async (req, res) => {
   try {
     const { identifier, newPassword } = req.body;
 
     if (!identifier || !newPassword) {
-      return res.status(400).json({ error: 'Registered mobile number or name and new password are required' });
+      return res
+        .status(400)
+        .json({ error: 'Registered mobile number or name and new password are required' });
     }
 
     if (newPassword.length < 6) {
@@ -231,10 +253,10 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 // Get Current User Profile
-app.get('/api/auth/me', authenticateToken, (req, res) => {
+router.get('/auth/me', authenticateToken, (req, res) => {
   const user = db.findParticipantById(req.user.id);
   if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+    return res.status(404).json({ error: 'User not found or profile has been removed' });
   }
   const { passwordHash, ...safeUser } = user;
   res.json({ user: safeUser });
@@ -244,11 +266,15 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // 2. SADHANA SUBMISSIONS (CHANTING & READING)
 // ==========================================
 
-// Submit Daily Sadhana
 const handleSadhanaSubmit = (req, res) => {
   try {
     const { date, rounds, readingMinutes } = req.body;
     const participantId = req.user.id;
+
+    const participant = db.findParticipantById(participantId);
+    if (!participant) {
+      return res.status(404).json({ error: 'Participant record not found' });
+    }
 
     const logDate =
       date && /^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -260,10 +286,9 @@ const handleSadhanaSubmit = (req, res) => {
 
     if (logDate < KARTIK_START_DATE) {
       return res.status(400).json({
-        error: 'Daily sadhana submission will open on 26th October 2026 (Kartik Maha-Vrata starts).',
+        error: 'Kartik Month starts on 26th October 2026. Daily challenge logging will open then.',
         code: 'BEFORE_START_DATE',
         startDate: KARTIK_START_DATE,
-        endDate: KARTIK_END_DATE,
       });
     }
 
@@ -309,8 +334,8 @@ const handleSadhanaSubmit = (req, res) => {
   }
 };
 
-app.post('/api/sadhana/submit', authenticateToken, handleSadhanaSubmit);
-app.post('/api/japa/submit', authenticateToken, handleSadhanaSubmit);
+router.post('/sadhana/submit', authenticateToken, handleSadhanaSubmit);
+router.post('/japa/submit', authenticateToken, handleSadhanaSubmit);
 
 // Get Participant's Sadhana History
 const handleSadhanaHistory = (req, res) => {
@@ -318,11 +343,11 @@ const handleSadhanaHistory = (req, res) => {
   res.json({ records });
 };
 
-app.get('/api/sadhana/history', authenticateToken, handleSadhanaHistory);
-app.get('/api/japa/history', authenticateToken, handleSadhanaHistory);
+router.get('/sadhana/history', authenticateToken, handleSadhanaHistory);
+router.get('/japa/history', authenticateToken, handleSadhanaHistory);
 
 // Get Today's Status
-app.get('/api/sadhana/today', authenticateToken, (req, res) => {
+router.get('/sadhana/today', authenticateToken, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const records = db.getParticipantJapaRecords(req.user.id);
   const todayRecord = records.find((r) => r.date === today) || null;
@@ -334,7 +359,7 @@ app.get('/api/sadhana/today', authenticateToken, (req, res) => {
 // ==========================================
 
 // Admin: Get Attendance by Date
-app.get('/api/admin/attendance', requireAdmin, (req, res) => {
+router.get('/admin/attendance', requireAdmin, (req, res) => {
   const date = req.query.date || new Date().toISOString().split('T')[0];
   const participants = db.getParticipants().filter((p) => p.role === 'participant');
   const session = db.findSessionByDate(date);
@@ -358,7 +383,7 @@ app.get('/api/admin/attendance', requireAdmin, (req, res) => {
 });
 
 // Admin: Set Attendance by Date
-app.post('/api/admin/attendance', requireAdmin, (req, res) => {
+router.post('/admin/attendance', requireAdmin, (req, res) => {
   try {
     const { date, attendedParticipantIds } = req.body;
     if (!date || !Array.isArray(attendedParticipantIds)) {
@@ -379,12 +404,12 @@ app.post('/api/admin/attendance', requireAdmin, (req, res) => {
 });
 
 // Session routes (backward compatibility)
-app.get('/api/sessions', (req, res) => {
+router.get('/sessions', (req, res) => {
   const sessions = db.getSessions();
   res.json({ sessions });
 });
 
-app.post('/api/sessions/attendance', requireAdmin, (req, res) => {
+router.post('/sessions/attendance', requireAdmin, (req, res) => {
   try {
     const { sessionId, attendedParticipantIds } = req.body;
     const updated = db.updateSessionAttendance(sessionId, attendedParticipantIds);
@@ -400,20 +425,23 @@ app.post('/api/sessions/attendance', requireAdmin, (req, res) => {
 // ==========================================
 
 // Global & Centre-filtered Leaderboard
-app.get('/api/leaderboard', (req, res) => {
+router.get('/leaderboard', (req, res) => {
   const { centre } = req.query;
   const leaderboard = db.calculateLeaderboard(centre || 'All');
   res.json({ leaderboard });
 });
 
 // Overall Challenge Stats
-app.get('/api/stats', (req, res) => {
+router.get('/stats', (req, res) => {
   const participants = db.getParticipants().filter((p) => p.role === 'participant');
   const japaRecords = db.getJapaRecords();
   const sessions = db.getSessions();
 
   const totalJapaRounds = japaRecords.reduce((acc, curr) => acc + (curr.challengeRounds || 0), 0);
-  const totalReadingMinutes = japaRecords.reduce((acc, curr) => acc + (curr.readingMinutes || 0), 0);
+  const totalReadingMinutes = japaRecords.reduce(
+    (acc, curr) => acc + (curr.readingMinutes || 0),
+    0
+  );
   const totalSessionsAttended = sessions.reduce(
     (acc, curr) => acc + (curr.attendedParticipantIds ? curr.attendedParticipantIds.length : 0),
     0
@@ -446,7 +474,7 @@ app.get('/api/stats', (req, res) => {
 // ==========================================
 
 // Admin: Get all participants with stats
-app.get('/api/admin/participants', requireAdmin, (req, res) => {
+router.get('/admin/participants', requireAdmin, (req, res) => {
   const participants = db.getParticipants().filter((p) => p.role === 'participant');
   const fullLeaderboard = db.calculateLeaderboard('All');
   const queryDate = req.query.date || new Date().toISOString().split('T')[0];
@@ -468,7 +496,8 @@ app.get('/api/admin/participants', requireAdmin, (req, res) => {
     const todayRecord =
       allJapaRecords.find((r) => r.participantId === p.id && r.date === queryDate) || null;
     const submittedToday =
-      !!todayRecord && ((todayRecord.challengeRounds || 0) > 0 || (todayRecord.readingMinutes || 0) > 0);
+      !!todayRecord &&
+      ((todayRecord.challengeRounds || 0) > 0 || (todayRecord.readingMinutes || 0) > 0);
 
     return {
       id: p.id,
@@ -487,7 +516,7 @@ app.get('/api/admin/participants', requireAdmin, (req, res) => {
 });
 
 // Admin: Manual Point Adjustment (Add/Remove Points)
-app.post('/api/admin/adjust-points', requireAdmin, (req, res) => {
+router.post('/admin/adjust-points', requireAdmin, (req, res) => {
   try {
     const { participantId, points, reason } = req.body;
     const pts = parseInt(points, 10);
@@ -526,57 +555,78 @@ app.post('/api/admin/adjust-points', requireAdmin, (req, res) => {
 });
 
 // Admin: Audit Logs
-app.get('/api/admin/audit-logs', requireAdmin, (req, res) => {
+router.get('/admin/audit-logs', requireAdmin, (req, res) => {
   const adjustments = db.getAdjustments();
   res.json({ auditLogs: adjustments });
 });
 
-// Admin: Delete Participant
-app.delete('/api/admin/participants/:id', requireAdmin, (req, res) => {
+// Admin: Delete Participant (Hard delete active profile with persistent tombstone)
+router.delete('/admin/participants/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const participant = db.findParticipantById(id);
 
-    if (!participant) {
-      return res.status(404).json({ error: 'Participant not found' });
-    }
+    const result = await db.runExclusive(() => {
+      const participant = db.findParticipantById(id);
 
-    if (participant.role === 'admin') {
-      return res.status(403).json({ error: 'Central Admin accounts cannot be deleted' });
-    }
+      if (!participant) {
+        const err = new Error('Participant not found');
+        err.code = 'NOT_FOUND';
+        throw err;
+      }
 
-    const deleted = db.deleteParticipant(id);
-    if (!deleted) {
-      return res.status(500).json({ error: 'Failed to delete participant' });
-    }
+      if (participant.role === 'admin') {
+        const err = new Error('Central Admin accounts cannot be deleted');
+        err.code = 'CANNOT_DELETE_ADMIN';
+        throw err;
+      }
 
-    res.json({
-      message: `Devotee "${participant.name}" (${participant.mobile}) has been deleted successfully.`,
+      const devoteeName = participant.name;
+      const devoteeMobile = participant.mobile;
+
+      const deleted = db.deleteParticipant(id);
+      if (!deleted) {
+        const err = new Error('Failed to delete participant from database');
+        err.code = 'DELETE_FAILED';
+        throw err;
+      }
+
+      return { devoteeName, devoteeMobile };
+    });
+
+    res.status(200).json({
+      message: `Devotee "${result.devoteeName}" (${result.devoteeMobile}) has been deleted successfully.`,
     });
   } catch (err) {
+    if (err.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: err.message });
+    }
+    if (err.code === 'CANNOT_DELETE_ADMIN') {
+      return res.status(403).json({ error: err.message });
+    }
     console.error('Participant deletion error:', err);
-    res.status(500).json({ error: 'Internal server error while deleting participant' });
+    res.status(500).json({ error: `Database error during deletion: ${err.message}` });
   }
 });
 
 // ==========================================
 // 6. CALENDAR API (USER-ISOLATED & ADMIN-INSPECTABLE)
 // ==========================================
-app.get('/api/calendar', authenticateToken, (req, res) => {
+router.get('/calendar', authenticateToken, (req, res) => {
   try {
     let targetParticipantId = req.user.id;
 
     // Admin can inspect any participant's calendar
     if (req.query.participantId && req.user.role === 'admin') {
-      targetParticipantId = String(req.query.participantId);
+      targetParticipantId = req.query.participantId;
     }
 
     const participant = db.findParticipantById(targetParticipantId);
     if (!participant) {
-      return res.status(404).json({ error: 'Participant not found' });
+      return res.status(404).json({ error: 'Participant not found or has been deleted' });
     }
 
     const japaRecords = db.getParticipantJapaRecords(targetParticipantId);
+
     const allSessions = db.getSessions();
     const sessions = allSessions.map((s) => ({
       id: s.id,
@@ -616,6 +666,10 @@ app.get('/api/calendar', authenticateToken, (req, res) => {
   }
 });
 
+// Mount the API Router on BOTH '/api' and '/' for full compatibility with Vercel rewrites and direct calls
+app.use('/api', router);
+app.use('/', router);
+
 // Only listen when running standalone via CLI (not imported in Vercel serverless)
 const isDirectCliExecution =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -628,4 +682,3 @@ if (isDirectCliExecution && !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCT
 
 export default app;
 export { app };
-
