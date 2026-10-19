@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Sparkles } from 'lucide-react';
 
@@ -19,9 +19,26 @@ export const DevotionalImage = ({
 }: DevotionalImageProps) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Synchronously / immediately verify if the image is already cached or complete
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      if (imgRef.current.naturalWidth > 0) {
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+        setHasError(true);
+      }
+    }
+  }, [src]);
 
   const aspectStyles: CSSProperties = {
     aspectRatio: aspectRatio === 'auto' ? undefined : aspectRatio,
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
   };
 
   return (
@@ -38,6 +55,7 @@ export const DevotionalImage = ({
             backgroundSize: '200% 100%',
             animation: 'shimmer 1.5s infinite',
             zIndex: 1,
+            pointerEvents: 'none',
           }}
         />
       )}
@@ -69,9 +87,16 @@ export const DevotionalImage = ({
         </div>
       ) : (
         <img
+          ref={imgRef}
           src={src}
           alt={alt}
           loading="lazy"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
           onLoad={() => setIsLoading(false)}
           onError={() => {
             setIsLoading(false);

@@ -100,7 +100,7 @@ export const RewardsPage = ({ onJoinClick }: RewardsPageProps) => {
         <h1
           className="heading-editorial"
           style={{
-            fontSize: '2.75rem',
+            fontSize: 'clamp(2rem, 5vw, 2.75rem)',
             color: 'var(--text-primary)',
             marginTop: '0.25rem',
             lineHeight: 1.15,
@@ -595,12 +595,11 @@ export const RewardsPage = ({ onJoinClick }: RewardsPageProps) => {
 
       {/* Feature Showcase 2: Sri Mayapur Pilgrimage Experience */}
       <section
-        className="glass-panel"
+        className="glass-panel rewards-feature-section"
         style={{
           marginTop: '3.5rem',
-          padding: '2.5rem',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
           gap: '2.25rem',
           alignItems: 'center',
         }}
@@ -712,6 +711,8 @@ export const RewardsPage = ({ onJoinClick }: RewardsPageProps) => {
 
         <div
           style={{
+            position: 'relative',
+            width: '100%',
             height: '300px',
             borderRadius: 'var(--radius-xl)',
             overflow: 'hidden',
@@ -730,16 +731,16 @@ export const RewardsPage = ({ onJoinClick }: RewardsPageProps) => {
 
       {/* Feature Showcase 3: The Official Challenge Hoodie (Golden Radiant Aesthetic) */}
       <section
+        className="rewards-feature-section"
         style={{
           marginTop: '2.5rem',
           background: 'linear-gradient(135deg, rgba(255, 251, 235, 0.96) 0%, rgba(254, 243, 199, 0.9) 50%, rgba(253, 230, 138, 0.6) 100%)',
           border: '1.5px solid rgba(245, 158, 11, 0.4)',
           boxShadow: '0 16px 40px rgba(217, 119, 6, 0.12)',
           borderRadius: 'var(--radius-xl)',
-          padding: '2.5rem',
           color: 'var(--text-primary)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
           gap: '2.25rem',
           alignItems: 'center',
         }}

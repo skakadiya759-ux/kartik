@@ -67,7 +67,7 @@ export function App() {
   }, []);
 
   const handleNavigate = (page: string) => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
     setCurrentPage(page);
     window.location.hash = page;
   };

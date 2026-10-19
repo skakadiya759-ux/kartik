@@ -12,6 +12,8 @@
 
 .main-content {
   flex: 1;
+  width: 100%;
+  min-height: 0;
 }
 
 /* ==========================================================================
@@ -1036,11 +1038,14 @@
   gap: 1.75rem;
   align-items: stretch;
   margin-top: 2rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 900px) {
   .rewards-podium-grid {
     grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 }
 
@@ -1055,7 +1060,15 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
   transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+@media (max-width: 640px) {
+  .reward-card-glass {
+    padding: 1.75rem 1.25rem;
+  }
 }
 
 .reward-card-glass:hover {
@@ -1088,6 +1101,19 @@
 .bar-gold { background: linear-gradient(90deg, #F59E0B, #D97706); }
 .bar-silver { background: linear-gradient(90deg, #94A3B8, #64748B); }
 .bar-bronze { background: linear-gradient(90deg, #FB923C, #C2410C); }
+
+/* Rewards Feature Sections (Mayapur Pilgrimage & Official Hoodie) */
+.rewards-feature-section {
+  padding: 2.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .rewards-feature-section {
+    padding: 1.65rem 1.35rem;
+  }
+}
 
 /* ==========================================================================
    7. PROFILE PAGE (Analysis Graph + Logout)
