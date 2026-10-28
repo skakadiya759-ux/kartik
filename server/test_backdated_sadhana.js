@@ -1,4 +1,5 @@
 import assert from 'assert';
+import jwt from 'jsonwebtoken';
 import app from './index.js';
 import { db } from './db.js';
 
@@ -83,7 +84,7 @@ async function runTestSuite() {
     // ========================================================
     // Test 2: Submit Backdated Sadhana for Previous Day (2026-10-26)
     // ========================================================
-    console.log('[Test 2] Logging backdated sadhana for Day 1 (2026-10-26: 8 rounds, 20 min reading, session attended)...');
+    console.log('[Test 2] Logging backdated sadhana for Day 1 (2026-10-26: 8 rounds, 20 min reading)...');
     const backdatedResA = await req('/sadhana/submit', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokenA}` },
@@ -91,14 +92,13 @@ async function runTestSuite() {
         date: '2026-10-26',
         rounds: 8,
         readingMinutes: 20,
-        attendedSession: true,
       }),
     });
     assert.strictEqual(backdatedResA.status, 200, 'Backdated sadhana should succeed');
     assert.strictEqual(backdatedResA.data.record.date, '2026-10-26');
     assert.strictEqual(backdatedResA.data.record.challengeRounds, 8);
     assert.strictEqual(backdatedResA.data.record.readingMinutes, 20);
-    assert.strictEqual(backdatedResA.data.record.attendedSession, true);
+    assert.strictEqual(backdatedResA.data.record.attendedSession, false);
     // Japa record points: 8 * 5 + 20 * 1 = 60 pts
     assert.strictEqual(backdatedResA.data.record.points, 60);
 
@@ -130,7 +130,6 @@ async function runTestSuite() {
         date: '2026-10-26',
         rounds: 12, // +4 rounds (+20 pts)
         readingMinutes: 45, // +25 mins (+25 pts)
-        attendedSession: true,
       }),
     });
     assert.strictEqual(updateResA.status, 200, 'Updating existing entry should succeed');
@@ -162,16 +161,16 @@ async function runTestSuite() {
     // Devotee A totals:
     // Rounds: 16 (on 28th) + 12 (on 26th) = 28 rounds -> 140 japa points
     // Reading: 30 (on 28th) + 45 (on 26th) = 75 minutes -> 75 reading points
-    // Sessions: 1 (attended on 26th) -> 25 shravanam points
-    // Total Points: 140 + 75 + 25 = 240 points
+    // Sessions: 0 sessions attended initially -> 0 shravanam points
+    // Total Points: 140 + 75 = 215 points
     assert.strictEqual(entryA.totalChallengeRounds, 28, 'Total rounds must be 28');
     assert.strictEqual(entryA.japaPoints, 140, 'Japa points must be 140');
     assert.strictEqual(entryA.totalReadingMinutes, 75, 'Reading minutes must be 75');
     assert.strictEqual(entryA.readingPoints, 75, 'Reading points must be 75');
-    assert.strictEqual(entryA.sessionsAttended, 1, 'Sessions attended must be 1');
-    assert.strictEqual(entryA.shravanamPoints, 25, 'Shravanam points must be 25');
-    assert.strictEqual(entryA.totalPoints, 240, 'Total points must be 240 exactly (zero double counting)');
-    console.log(`✔ Passed: Devotee A has exactly 240 total points across both dates (Rounds: 28, Reading: 75m, Session: 1).\n`);
+    assert.strictEqual(entryA.sessionsAttended, 0, 'Sessions attended must be 0');
+    assert.strictEqual(entryA.shravanamPoints, 0, 'Shravanam points must be 0');
+    assert.strictEqual(entryA.totalPoints, 215, 'Total points must be 215 exactly (zero double counting)');
+    console.log(`✔ Passed: Devotee A has exactly 215 total points across both dates (Rounds: 28, Reading: 75m, Session: 0).\n`);
 
     // Check Stats endpoint parity
     const statsRes = await req('/stats');
@@ -255,30 +254,89 @@ async function runTestSuite() {
     console.log('✔ Passed: Data isolation verified. Spoofed participantId ignored in favor of verified JWT token.\n');
 
     // ========================================================
-    // Test 8: Reading Session Attendance Toggling
+    // Test 8: Reading Session Attendance - Admin Only Control
     // ========================================================
-    console.log('[Test 8] Testing reading session attendance toggle on backdated date...');
-    // Devotee A toggles session attendance off for 2026-10-26
-    const toggleOffRes = await req('/sadhana/submit', {
+    console.log('[Test 8] Testing Reading Session Attendance (Admin-Only verification)...');
+    
+    // Devotee A (role: participant) attempts to self-mark session attendance
+    const participantAttemptRes = await req('/sadhana/submit', {
       method: 'POST',
       headers: { Authorization: `Bearer ${tokenA}` },
       body: JSON.stringify({
         date: '2026-10-26',
         rounds: 12,
         readingMinutes: 45,
-        attendedSession: false,
+        attendedSession: true, // Should be ignored because user is not admin
       }),
     });
-    assert.strictEqual(toggleOffRes.status, 200);
-    assert.strictEqual(toggleOffRes.data.record.attendedSession, false);
+    assert.strictEqual(participantAttemptRes.status, 200);
+    assert.strictEqual(participantAttemptRes.data.record.attendedSession, false, 'Participant self-marking session must remain false');
 
-    // Leaderboard should now have 0 sessions and 215 points (240 - 25)
-    const lbRes2 = await req('/leaderboard?centre=All');
-    const entryA2 = lbRes2.data.leaderboard.find((l) => l.participantId === userA.id);
-    assert.strictEqual(entryA2.sessionsAttended, 0, 'Sessions attended must be 0 after unticking');
-    assert.strictEqual(entryA2.shravanamPoints, 0, 'Shravanam points must be 0');
-    assert.strictEqual(entryA2.totalPoints, 215, 'Total points must be 215 (140 + 75 + 0)');
-    console.log('✔ Passed: Session attendance toggle accurately updates sessions and recalculates points.\n');
+    // Devotee A attempts to call admin attendance endpoint directly
+    const unauthorizedAttRes = await req('/admin/attendance', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({
+        date: '2026-10-26',
+        attendedParticipantIds: [userA.id],
+      }),
+    });
+    assert.strictEqual(unauthorizedAttRes.status, 403, 'Participant must be forbidden from admin attendance endpoint');
+    assert.strictEqual(unauthorizedAttRes.data.error, 'Admin privileges required');
+    console.log('✔ Passed: Non-admin participant cannot self-mark or modify attendance.\n');
+
+    // Admin marks attendance for Devotee A on 2026-10-26
+    const adminToken = jwt.sign(
+      { id: 'usr_admin_001', role: 'admin' },
+      process.env.JWT_SECRET || 'kartik-sacred-jwt-secret-2026'
+    );
+    const adminAttRes = await req('/admin/attendance', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        date: '2026-10-26',
+        attendedParticipantIds: [userA.id],
+      }),
+    });
+    assert.strictEqual(adminAttRes.status, 200, 'Admin attendance submission should succeed');
+    assert.strictEqual(adminAttRes.data.totalAttended, 1);
+
+    // Leaderboard should now award +25 points (215 + 25 = 240)
+    const lbResWithSession = await req('/leaderboard?centre=All');
+    const entryAWithSession = lbResWithSession.data.leaderboard.find((l) => l.participantId === userA.id);
+    assert.strictEqual(entryAWithSession.sessionsAttended, 1, 'Sessions attended must be 1');
+    assert.strictEqual(entryAWithSession.shravanamPoints, 25, 'Shravanam points must be 25');
+    assert.strictEqual(entryAWithSession.totalPoints, 240, 'Total points must be 240 (140 + 75 + 25)');
+    console.log('✔ Passed: Admin-verified attendance successfully awards +25 points on leaderboard.\n');
+
+    // Devotee A logs an update to rounds on 2026-10-26; admin-verified attendance is preserved
+    const preserveRes = await req('/sadhana/submit', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({
+        date: '2026-10-26',
+        rounds: 16,
+        readingMinutes: 45,
+      }),
+    });
+    assert.strictEqual(preserveRes.status, 200);
+    assert.strictEqual(preserveRes.data.record.attendedSession, true, 'Admin verified attendance preserved across participant edits');
+
+    // Admin unmarks attendance for 2026-10-26
+    const adminClearRes = await req('/admin/attendance', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        date: '2026-10-26',
+        attendedParticipantIds: [],
+      }),
+    });
+    assert.strictEqual(adminClearRes.status, 200);
+    const lbResAfterClear = await req('/leaderboard?centre=All');
+    const entryAAfterClear = lbResAfterClear.data.leaderboard.find((l) => l.participantId === userA.id);
+    assert.strictEqual(entryAAfterClear.sessionsAttended, 0, 'Sessions attended must be 0 after admin unmarks');
+    assert.strictEqual(entryAAfterClear.shravanamPoints, 0, 'Shravanam points must be 0');
+    console.log('✔ Passed: Admin attendance management functions with strict authorization and synchronization.\n');
 
     // ========================================================
     // Test 9: Calendar Endpoint Verification

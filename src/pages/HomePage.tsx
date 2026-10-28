@@ -11,6 +11,7 @@ import {
   BookOpen,
   AlertCircle,
   Flame,
+  Shield,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
@@ -301,10 +302,10 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       return;
     }
 
-    if (rounds === 0 && readingMinutes === 0 && !attendedSession) {
+    if (rounds === 0 && readingMinutes === 0) {
       setFeedback({
         type: 'error',
-        message: 'Please enter at least 1 chanting round, 1 minute of reading, or mark session attendance.',
+        message: 'Please enter at least 1 chanting round or 1 minute of reading.',
       });
       return;
     }
@@ -315,7 +316,6 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
         date: selectedDate,
         rounds,
         readingMinutes,
-        attendedSession,
       });
 
       setCalendarRefreshTrigger((prev) => prev + 1);
@@ -324,7 +324,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
 
       setFeedback({
         type: 'success',
-        message: `Haribol! Sadhana ${dateLabel} saved successfully (${rounds} rounds chanted • ${readingMinutes} min read ${attendedSession ? '• Session attended' : ''}).`,
+        message: `Haribol! Sadhana ${dateLabel} saved successfully (${rounds} rounds chanted • ${readingMinutes} min read).`,
       });
 
       confetti({
@@ -790,69 +790,37 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
             </div>
           </div>
 
-          {/* Field 3: Reading Session Attendance Toggle Box */}
-          <div
-            className={`sadhana-session-toggle-box ${attendedSession ? 'active' : ''}`}
-            onClick={() => setAttendedSession(!attendedSession)}
-            role="checkbox"
-            aria-checked={attendedSession}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault();
-                setAttendedSession(!attendedSession);
-              }
-            }}
-          >
+          {/* Field 4: Reading Session Attendance (Admin Verified Only) */}
+          <div className={`sadhana-session-status-card ${attendedSession ? 'verified' : 'not-verified'}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '10px',
-                  background: attendedSession ? '#0284C7' : 'rgba(3, 105, 161, 0.1)',
-                  color: attendedSession ? '#FFFFFF' : '#0284C7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s ease',
-                  flexShrink: 0,
-                }}
-              >
-                <BookOpen size={20} />
+              <div className={`session-status-icon ${attendedSession ? 'verified' : 'not-verified'}`}>
+                {attendedSession ? <CheckCircle2 size={22} /> : <BookOpen size={20} />}
               </div>
 
               <div>
-                <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                <div style={{ fontSize: '0.94rem', fontWeight: 800, color: attendedSession ? '#065F46' : 'var(--text-primary)' }}>
                   4. Reading Session Attendance (Shravanam)
                 </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                  Attended the daily Kartik Shravanam &amp; Satsang reading session on {selectedDate}
+                <div style={{ fontSize: '0.82rem', color: attendedSession ? '#047857' : 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                  {attendedSession
+                    ? `✓ Temple Admin has verified your attendance for ${selectedDate}'s Kartik Shravanam & Satsang session.`
+                    : `Attendance for daily reading sessions (+25 pts) is recorded and verified exclusively by Temple Admin.`}
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span
-                style={{
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  padding: '0.25rem 0.65rem',
-                  borderRadius: 'var(--radius-pill)',
-                  background: attendedSession ? 'rgba(16, 185, 129, 0.15)' : 'rgba(3, 105, 161, 0.1)',
-                  color: attendedSession ? '#065F46' : '#0369A1',
-                }}
-              >
-                +25 Points
-              </span>
-
-              <input
-                type="checkbox"
-                checked={attendedSession}
-                onChange={(e) => setAttendedSession(e.target.checked)}
-                style={{ width: 20, height: 20, accentColor: '#0284C7', cursor: 'pointer' }}
-                onClick={(e) => e.stopPropagation()}
-              />
+            <div>
+              {attendedSession ? (
+                <span className="badge-admin-verified">
+                  <CheckCircle2 size={13} />
+                  ✓ Admin Verified (+25 Pts)
+                </span>
+              ) : (
+                <span className="badge-admin-only">
+                  <Shield size={13} />
+                  Admin Verification Only
+                </span>
+              )}
             </div>
           </div>
 
@@ -862,7 +830,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
               <Sparkles size={16} color="var(--primary-orange)" />
               <span>Score Preview for {selectedDate === todayStr ? 'Today' : selectedDate}:</span>
               <span style={{ color: 'var(--text-secondary)' }}>
-                {rounds} rds (+{rounds * 5}) + {readingMinutes} min (+{readingMinutes}) {attendedSession ? '+ Session (+25)' : ''}
+                {rounds} rds (+{rounds * 5}) + {readingMinutes} min (+{readingMinutes}) {attendedSession ? '+ Admin Verified Session (+25)' : ''}
               </span>
             </div>
 
@@ -961,7 +929,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                   <th>Status</th>
                   <th>Chanting (Rounds)</th>
                   <th>Reading (Min)</th>
-                  <th>Session Attendance</th>
+                  <th>Reading Session (Admin Verified)</th>
                   <th>Points</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
@@ -1029,11 +997,14 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
 
                       <td>
                         {sessAttended ? (
-                          <span style={{ fontWeight: 700, color: '#0369A1' }}>
-                            Attended (+25 pts)
+                          <span className="badge-admin-verified">
+                            <CheckCircle2 size={12} />
+                            ✓ Attended (+25)
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                            — Not Marked
+                          </span>
                         )}
                       </td>
 

@@ -788,6 +788,7 @@ class Database {
     challengeRounds = 0,
     readingMinutes = 0,
     attendedSession = undefined,
+    isAdmin = false,
   }) {
     const tombstoneSet = new Set(this.data.deletedParticipantIds || []);
     if (tombstoneSet.has(participantId)) {
@@ -803,14 +804,22 @@ class Database {
     // 5 pts per round + 1 pt per reading minute
     const points = rounds * 5 + reading * 1;
 
+    // Check official session attendance marked by Admin
+    let session = this.findSessionByDate(date);
+    const isAttendedInOfficialSession = Array.isArray(session?.attendedParticipantIds) &&
+      session.attendedParticipantIds.includes(participantId);
+
+    // Only Admin can directly alter reading session attendance. Participants inherit official admin status.
+    const finalAttendedSession = isAdmin && typeof attendedSession === 'boolean'
+      ? attendedSession
+      : isAttendedInOfficialSession;
+
     let resultRecord = null;
     if (existingIndex >= 0) {
       this.data.japaRecords[existingIndex].challengeRounds = rounds;
       this.data.japaRecords[existingIndex].readingMinutes = reading;
       this.data.japaRecords[existingIndex].points = points;
-      if (typeof attendedSession === 'boolean') {
-        this.data.japaRecords[existingIndex].attendedSession = attendedSession;
-      }
+      this.data.japaRecords[existingIndex].attendedSession = finalAttendedSession;
       this.data.japaRecords[existingIndex].updatedAt = new Date().toISOString();
       resultRecord = this.data.japaRecords[existingIndex];
     } else {
@@ -821,15 +830,14 @@ class Database {
         challengeRounds: rounds,
         readingMinutes: reading,
         points,
-        attendedSession: typeof attendedSession === 'boolean' ? attendedSession : false,
+        attendedSession: finalAttendedSession,
         submittedAt: new Date().toISOString(),
       };
       this.data.japaRecords.push(resultRecord);
     }
 
-    // Synchronize session attendance if explicitly specified
-    if (typeof attendedSession === 'boolean') {
-      let session = this.findSessionByDate(date);
+    // Synchronize session attendance in this.data.sessions ONLY if an Admin explicitly modified it
+    if (isAdmin && typeof attendedSession === 'boolean') {
       if (attendedSession) {
         if (!session) {
           session = {
@@ -896,6 +904,13 @@ class Database {
       };
       this.data.sessions.push(session);
     }
+    // Also synchronize attendedSession flag on any existing japaRecords for this date
+    (this.data.japaRecords || []).forEach((r) => {
+      if (r.date === date) {
+        r.attendedSession = cleanIds.includes(r.participantId);
+      }
+    });
+
     await this.save();
     return session;
   }

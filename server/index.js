@@ -398,7 +398,8 @@ const handleSadhanaSubmit = async (req, res) => {
 
     const roundCount = Math.max(0, parseInt(rounds, 10) || 0);
     const readingMin = Math.max(0, parseInt(readingMinutes, 10) || 0);
-    const isAttended = typeof attendedSession === 'boolean' ? attendedSession : undefined;
+    const isAdmin = req.user && req.user.role === 'admin';
+    const isAttended = isAdmin && typeof attendedSession === 'boolean' ? attendedSession : undefined;
 
     if (roundCount < 0 || roundCount > 128) {
       return res.status(400).json({ error: 'Chanting rounds must be between 0 and 128' });
@@ -408,9 +409,9 @@ const handleSadhanaSubmit = async (req, res) => {
       return res.status(400).json({ error: 'Reading minutes must be between 0 and 720 (12 hours)' });
     }
 
-    if (roundCount === 0 && readingMin === 0 && !isAttended) {
+    if (roundCount === 0 && readingMin === 0) {
       return res.status(400).json({
-        error: 'Please enter at least 1 chanting round, 1 minute of reading, or mark reading session attendance',
+        error: 'Please enter at least 1 chanting round or 1 minute of reading',
       });
     }
 
@@ -422,6 +423,7 @@ const handleSadhanaSubmit = async (req, res) => {
         challengeRounds: roundCount,
         readingMinutes: readingMin,
         attendedSession: isAttended,
+        isAdmin,
       });
     });
 

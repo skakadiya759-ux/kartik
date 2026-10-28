@@ -1579,31 +1579,74 @@
   font-weight: 700;
 }
 
-.sadhana-session-toggle-box {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1.5px solid rgba(3, 105, 161, 0.2);
+.sadhana-session-status-card {
   border-radius: var(--radius-lg);
   padding: 1.15rem 1.4rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 4px 16px -2px rgba(3, 105, 161, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-.sadhana-session-toggle-box:hover {
-  border-color: rgba(3, 105, 161, 0.45);
-  background: rgba(240, 249, 255, 0.7);
+.sadhana-session-status-card.verified {
+  background: rgba(240, 253, 244, 0.95);
+  border: 1.5px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08);
 }
 
-.sadhana-session-toggle-box.active {
-  border-color: #0284C7;
-  background: rgba(240, 249, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.12);
+.sadhana-session-status-card.not-verified {
+  background: rgba(248, 250, 252, 0.95);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 4px 16px rgba(148, 163, 184, 0.05);
+}
+
+.session-status-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.session-status-icon.verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.session-status-icon.not-verified {
+  background: rgba(148, 163, 184, 0.15);
+  color: #64748B;
+}
+
+.badge-admin-verified {
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.18);
+  color: #065F46;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.badge-admin-only {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .sadhana-points-preview-bar {
