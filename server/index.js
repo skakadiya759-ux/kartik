@@ -343,9 +343,18 @@ router.get('/auth/me', authenticateToken, (req, res) => {
 // 2. SADHANA SUBMISSIONS (CHANTING & READING)
 // ==========================================
 
+function getTodayIST() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 const handleSadhanaSubmit = async (req, res) => {
   try {
-    const { date, rounds, readingMinutes } = req.body;
+    const { date, rounds, readingMinutes, attendedSession } = req.body;
     const participantId = req.user.id;
 
     const participant = db.findParticipantById(participantId);
@@ -353,10 +362,11 @@ const handleSadhanaSubmit = async (req, res) => {
       return res.status(404).json({ error: 'Participant record not found' });
     }
 
+    const todayIST = getTodayIST();
     const logDate =
       date && /^\d{4}-\d{2}-\d{2}$/.test(date)
         ? date
-        : new Date().toISOString().split('T')[0];
+        : todayIST;
 
     const KARTIK_START_DATE = '2026-10-26';
     const KARTIK_END_DATE = '2026-11-24';
@@ -377,8 +387,18 @@ const handleSadhanaSubmit = async (req, res) => {
       });
     }
 
+    // Do not allow selecting future dates
+    if (logDate > todayIST) {
+      return res.status(400).json({
+        error: 'Sadhana cannot be entered for future dates. You can only submit for today or previous dates within Kartik.',
+        code: 'FUTURE_DATE_NOT_ALLOWED',
+        today: todayIST,
+      });
+    }
+
     const roundCount = Math.max(0, parseInt(rounds, 10) || 0);
     const readingMin = Math.max(0, parseInt(readingMinutes, 10) || 0);
+    const isAttended = typeof attendedSession === 'boolean' ? attendedSession : undefined;
 
     if (roundCount < 0 || roundCount > 128) {
       return res.status(400).json({ error: 'Chanting rounds must be between 0 and 128' });
@@ -388,9 +408,9 @@ const handleSadhanaSubmit = async (req, res) => {
       return res.status(400).json({ error: 'Reading minutes must be between 0 and 720 (12 hours)' });
     }
 
-    if (roundCount === 0 && readingMin === 0) {
+    if (roundCount === 0 && readingMin === 0 && !isAttended) {
       return res.status(400).json({
-        error: 'Please enter at least 1 chanting round or 1 minute of reading',
+        error: 'Please enter at least 1 chanting round, 1 minute of reading, or mark reading session attendance',
       });
     }
 
@@ -401,6 +421,7 @@ const handleSadhanaSubmit = async (req, res) => {
         date: logDate,
         challengeRounds: roundCount,
         readingMinutes: readingMin,
+        attendedSession: isAttended,
       });
     });
 
@@ -429,12 +450,62 @@ const handleSadhanaHistory = (req, res) => {
 router.get('/sadhana/history', authenticateToken, handleSadhanaHistory);
 router.get('/japa/history', authenticateToken, handleSadhanaHistory);
 
+// Get Sadhana Record for a specific date (or today by default)
+const handleSadhanaByDate = (req, res) => {
+  const queryDate =
+    req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+      ? req.query.date
+      : getTodayIST();
+
+  const records = db.getParticipantJapaRecords(req.user.id);
+  const record = records.find((r) => r.date === queryDate) || null;
+  const session = db.findSessionByDate(queryDate);
+  const sessionAttended = session ? (session.attendedParticipantIds || []).includes(req.user.id) : false;
+
+  res.json({
+    date: queryDate,
+    record,
+    sessionAttended,
+    session: session
+      ? {
+          id: session.id,
+          date: session.date,
+          title: session.title,
+          speaker: session.speaker,
+          topic: session.topic,
+          points: session.points || 25,
+          attended: sessionAttended,
+        }
+      : null,
+  });
+};
+
+router.get('/sadhana/entry', authenticateToken, handleSadhanaByDate);
+router.get('/sadhana/by-date', authenticateToken, handleSadhanaByDate);
+
 // Get Today's Status
 router.get('/sadhana/today', authenticateToken, (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayIST();
   const records = db.getParticipantJapaRecords(req.user.id);
   const todayRecord = records.find((r) => r.date === today) || null;
-  res.json({ date: today, record: todayRecord });
+  const session = db.findSessionByDate(today);
+  const sessionAttended = session ? (session.attendedParticipantIds || []).includes(req.user.id) : false;
+  res.json({
+    date: today,
+    record: todayRecord,
+    sessionAttended,
+    session: session
+      ? {
+          id: session.id,
+          date: session.date,
+          title: session.title,
+          speaker: session.speaker,
+          topic: session.topic,
+          points: session.points || 25,
+          attended: sessionAttended,
+        }
+      : null,
+  });
 });
 
 // ==========================================

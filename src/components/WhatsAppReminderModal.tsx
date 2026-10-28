@@ -99,7 +99,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
         return `Hare Krishna ${d.name} prabhuji/mataji! 🙏\n\nThis is a gentle reminder from the Kartik Challenge team. Please remember to log your daily Sadhana (Japa rounds & Scripture reading) for today (${todayStr}) on the portal:\n👉 ${portalUrl}\n\nMay Sri Sri Radha Damodara bless your devotional service! 🪔✨`;
 
       case 'attendance':
-        return `Hare Krishna ${d.name} prabhuji/mataji! 🙏\n\nToday's Kartik Shravanam & Damodarashtakam reading session (${todayStr}) is scheduled. Please join the session and confirm your attendance on the portal to receive +10 spiritual points!\n👉 ${portalUrl}\n\nHare Krishna! 📿📖`;
+        return `Hare Krishna ${d.name} prabhuji/mataji! 🙏\n\nToday's Kartik Shravanam & Damodarashtakam reading session (${todayStr}) is scheduled. Please join the session and confirm your attendance on the portal to receive +25 spiritual points!\n👉 ${portalUrl}\n\nHare Krishna! 📿📖`;
 
       case 'appreciation':
         return `Hare Krishna ${d.name} ji! 🌟\n\nHaribol! Outstanding dedication to your Kartik Vrata. You have accumulated ${d.points || 0} spiritual points so far on the leaderboard! Keep inspiring everyone with your steady chanting and reading.\n👉 Check standings: ${portalUrl}\n\nJai Sri Damodara! 🪔✨`;

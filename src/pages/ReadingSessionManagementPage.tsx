@@ -130,7 +130,7 @@ export const ReadingSessionManagementPage = () => {
             Reading Session Attendance
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Schedule discourses and verify youth participant attendance. Attendees automatically receive <strong>10 points</strong> each.
+            Schedule discourses and verify youth participant attendance. Attendees automatically receive <strong>25 points</strong> each.
           </p>
         </div>
 
@@ -322,7 +322,7 @@ export const ReadingSessionManagementPage = () => {
                   marginBottom: '1.25rem',
                 }}
               >
-                Each checked attendee receives <strong>+10 points</strong> added to their leaderboard score automatically.
+                Each checked attendee receives <strong>+25 points</strong> added to their leaderboard score automatically.
               </div>
 
               {/* Checklist */}
@@ -368,7 +368,7 @@ export const ReadingSessionManagementPage = () => {
                         }`}
                         style={{ fontSize: '0.75rem' }}
                       >
-                        {isChecked ? '+10 Pts' : 'Absent'}
+                        {isChecked ? '+25 Pts' : 'Absent'}
                       </span>
                     </div>
                   );

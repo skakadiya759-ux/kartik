@@ -782,7 +782,13 @@ class Database {
     );
   }
 
-  async upsertSadhanaRecord({ participantId, date, challengeRounds = 0, readingMinutes = 0 }) {
+  async upsertSadhanaRecord({
+    participantId,
+    date,
+    challengeRounds = 0,
+    readingMinutes = 0,
+    attendedSession = undefined,
+  }) {
     const tombstoneSet = new Set(this.data.deletedParticipantIds || []);
     if (tombstoneSet.has(participantId)) {
       throw new Error('Cannot log sadhana for deleted participant');
@@ -802,19 +808,52 @@ class Database {
       this.data.japaRecords[existingIndex].challengeRounds = rounds;
       this.data.japaRecords[existingIndex].readingMinutes = reading;
       this.data.japaRecords[existingIndex].points = points;
-      this.data.japaRecords[existingIndex].submittedAt = new Date().toISOString();
+      if (typeof attendedSession === 'boolean') {
+        this.data.japaRecords[existingIndex].attendedSession = attendedSession;
+      }
+      this.data.japaRecords[existingIndex].updatedAt = new Date().toISOString();
       resultRecord = this.data.japaRecords[existingIndex];
     } else {
       resultRecord = {
-        id: `sadhana_${Date.now()}`,
+        id: `sadhana_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         participantId,
         date,
         challengeRounds: rounds,
         readingMinutes: reading,
         points,
+        attendedSession: typeof attendedSession === 'boolean' ? attendedSession : false,
         submittedAt: new Date().toISOString(),
       };
       this.data.japaRecords.push(resultRecord);
+    }
+
+    // Synchronize session attendance if explicitly specified
+    if (typeof attendedSession === 'boolean') {
+      let session = this.findSessionByDate(date);
+      if (attendedSession) {
+        if (!session) {
+          session = {
+            id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            date,
+            title: 'Kartik Shravanam & Satsang',
+            speaker: 'HG Gauranga Priya Dasa',
+            topic: 'Damodara Lila & Srimad Bhagavatam',
+            points: 25,
+            attendedParticipantIds: [participantId],
+            createdAt: new Date().toISOString(),
+          };
+          this.data.sessions.push(session);
+        } else {
+          session.attendedParticipantIds = Array.isArray(session.attendedParticipantIds)
+            ? session.attendedParticipantIds
+            : [];
+          if (!session.attendedParticipantIds.includes(participantId)) {
+            session.attendedParticipantIds.push(participantId);
+          }
+        }
+      } else if (session && Array.isArray(session.attendedParticipantIds)) {
+        session.attendedParticipantIds = session.attendedParticipantIds.filter((id) => id !== participantId);
+      }
     }
 
     await this.save();
@@ -908,12 +947,12 @@ class Database {
       const sortedDates = [...new Set(pRecords.map((r) => r.date))].sort();
       const streak = sortedDates.length;
 
-      // 2. Calculate Shravanam (Reading session) points: 10 points per verified session
+      // 2. Calculate Shravanam (Reading session) points: 25 points per verified session
       const attendedSessions = (this.data.sessions || []).filter(
         (s) => s.attendedParticipantIds && s.attendedParticipantIds.includes(p.id)
       );
       const sessionsAttended = attendedSessions.length;
-      const shravanamPoints = sessionsAttended * 10;
+      const shravanamPoints = sessionsAttended * 25;
 
       // 3. Manual adjustments
       const pAdjustments = (this.data.adjustments || []).filter((a) => a.participantId === p.id);

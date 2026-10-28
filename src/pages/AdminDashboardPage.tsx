@@ -224,11 +224,11 @@ export const AdminDashboardPage = ({ onNavigate }: AdminDashboardPageProps) => {
             </div>
             <div>
               <h3 style={{ fontSize: '1.2rem', color: 'var(--primary-deep)' }}>Reading Session Attendance</h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Mark shravanam attendance (10 pts/attendee)</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Mark shravanam attendance (25 pts/attendee)</p>
             </div>
           </div>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
-            Schedule and verify daily Damodarashtakam and Srimad Bhagavatam reading sessions. Easily mark participants present with automatic 10-point awards.
+            Schedule and verify daily Damodarashtakam and Srimad Bhagavatam reading sessions. Easily mark participants present with automatic 25-point awards.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: 'var(--accent-saffron-deep)', fontSize: '0.9rem' }}>
             Manage Sessions &amp; Attendance <ArrowRight size={16} />

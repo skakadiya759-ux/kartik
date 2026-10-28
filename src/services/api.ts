@@ -114,11 +114,12 @@ class ApiService {
     this.setToken(null);
   }
 
-  // Sadhana (Chanting Rounds & Reading in Min)
+  // Sadhana (Chanting Rounds, Reading in Min & Session Attendance)
   async submitSadhana(params: {
     date: string;
     rounds: number;
     readingMinutes: number;
+    attendedSession?: boolean;
   }): Promise<{ message: string; record: DailySadhanaRecord }> {
     return this.request<{ message: string; record: DailySadhanaRecord }>('/sadhana/submit', {
       method: 'POST',
@@ -126,8 +127,13 @@ class ApiService {
     });
   }
 
-  async submitJapa(date: string, rounds: number, readingMinutes = 0): Promise<{ message: string; record: DailySadhanaRecord }> {
-    return this.submitSadhana({ date, rounds, readingMinutes });
+  async submitJapa(
+    date: string,
+    rounds: number,
+    readingMinutes = 0,
+    attendedSession = false
+  ): Promise<{ message: string; record: DailySadhanaRecord }> {
+    return this.submitSadhana({ date, rounds, readingMinutes, attendedSession });
   }
 
   async getSadhanaHistory(): Promise<{ records: DailySadhanaRecord[] }> {
@@ -138,8 +144,32 @@ class ApiService {
     return this.getSadhanaHistory();
   }
 
-  async getTodaySadhana(): Promise<{ date: string; record: DailySadhanaRecord | null }> {
-    return this.request<{ date: string; record: DailySadhanaRecord | null }>('/sadhana/today');
+  async getTodaySadhana(): Promise<{
+    date: string;
+    record: DailySadhanaRecord | null;
+    sessionAttended?: boolean;
+    session?: ReadingSession | null;
+  }> {
+    return this.request<{
+      date: string;
+      record: DailySadhanaRecord | null;
+      sessionAttended?: boolean;
+      session?: ReadingSession | null;
+    }>('/sadhana/today');
+  }
+
+  async getSadhanaByDate(date: string): Promise<{
+    date: string;
+    record: DailySadhanaRecord | null;
+    sessionAttended: boolean;
+    session: ReadingSession | null;
+  }> {
+    return this.request<{
+      date: string;
+      record: DailySadhanaRecord | null;
+      sessionAttended: boolean;
+      session: ReadingSession | null;
+    }>(`/sadhana/entry?date=${encodeURIComponent(date)}`);
   }
 
   // Sessions & Attendance

@@ -1481,3 +1481,227 @@
   box-shadow: 0 2px 8px rgba(37, 211, 102, 0.28);
 }
 
+/* ============================================================== */
+/* BACKDATED SADHANA & DATE-WISE PROGRESS STYLES                  */
+/* ============================================================== */
+
+.sadhana-date-selector-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(255, 122, 26, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 16px -2px rgba(234, 88, 12, 0.05);
+}
+
+.sadhana-date-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.sadhana-date-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.sadhana-date-input {
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid rgba(255, 122, 26, 0.3);
+  background: #FFFFFF;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.sadhana-date-input:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+}
+
+.date-quick-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 122, 26, 0.25);
+  background: rgba(255, 247, 237, 0.85);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.date-quick-btn:hover {
+  background: rgba(255, 122, 26, 0.15);
+  color: var(--primary-orange);
+}
+
+.date-quick-btn.active {
+  background: var(--primary-orange);
+  color: #FFFFFF;
+  border-color: var(--primary-orange);
+  box-shadow: 0 2px 8px rgba(255, 107, 0, 0.28);
+}
+
+.sadhana-date-badge-editing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.12);
+  color: #065F46;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sadhana-date-badge-missed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400E;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sadhana-session-toggle-box {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(3, 105, 161, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1.4rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 16px -2px rgba(3, 105, 161, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sadhana-session-toggle-box:hover {
+  border-color: rgba(3, 105, 161, 0.45);
+  background: rgba(240, 249, 255, 0.7);
+}
+
+.sadhana-session-toggle-box.active {
+  border-color: #0284C7;
+  background: rgba(240, 249, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.12);
+}
+
+.sadhana-points-preview-bar {
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.9) 0%, rgba(254, 243, 199, 0.8) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sadhana-history-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-xl);
+  padding: 2rem 2.25rem;
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 640px) {
+  .sadhana-history-card {
+    padding: 1.5rem 1rem;
+  }
+}
+
+.sadhana-history-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 1rem;
+}
+
+.sadhana-history-table th {
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid rgba(28, 25, 23, 0.08);
+}
+
+.sadhana-history-table td {
+  padding: 0.85rem 0.9rem;
+  font-size: 0.88rem;
+  border-bottom: 1px solid rgba(28, 25, 23, 0.06);
+  vertical-align: middle;
+}
+
+.sadhana-history-table tr:hover td {
+  background: rgba(255, 247, 237, 0.4);
+}
+
+.btn-history-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+  color: #065F46;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-history-edit:hover {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+.btn-history-missed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.12);
+  color: #B45309;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-history-missed:hover {
+  background: #D97706;
+  color: #FFFFFF;
+}
+

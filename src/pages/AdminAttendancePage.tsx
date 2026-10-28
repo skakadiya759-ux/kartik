@@ -79,7 +79,7 @@ export const AdminAttendancePage = () => {
 
       setFeedback({
         type: 'success',
-        message: `Attendance sheet saved! ${attendedIds.length} devotees verified for ${selectedDate} (+10 points each).`,
+        message: `Attendance sheet saved! ${attendedIds.length} devotees verified for ${selectedDate} (+25 points each).`,
       });
 
       confetti({
@@ -107,7 +107,7 @@ export const AdminAttendancePage = () => {
 
   const handleBroadcastAbsent = async () => {
     const numbers = absentParticipants.map((p) => p.mobile.replace(/\D/g, '')).join(', ');
-    const msg = `Hare Krishna Devotees! 🙏\n\nToday's Kartik Shravanam & Damodarashtakam reading session (${selectedDate}) is scheduled. Please join the session and record your attendance to receive +10 spiritual points!\n👉 https://kartik-challenge.vercel.app\n\nAbsent Devotee Numbers:\n${numbers}`;
+    const msg = `Hare Krishna Devotees! 🙏\n\nToday's Kartik Shravanam & Damodarashtakam reading session (${selectedDate}) is scheduled. Please join the session and record your attendance to receive +25 spiritual points!\n👉 https://kartik-challenge.vercel.app\n\nAbsent Devotee Numbers:\n${numbers}`;
     try {
       await navigator.clipboard.writeText(msg);
       setCopiedAbsent(true);
@@ -140,7 +140,7 @@ export const AdminAttendancePage = () => {
             Shravanam Attendance Sheet
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem' }}>
-            Select the date to set attendance. Mark devotees present to verify their 10 points or send WhatsApp reminders.
+            Select the date to set attendance. Mark devotees present to verify their 25 points or send WhatsApp reminders.
           </p>
         </div>
 
@@ -347,7 +347,7 @@ export const AdminAttendancePage = () => {
                         color: isChecked ? '#065F46' : 'var(--text-muted)',
                       }}
                     >
-                      {isChecked ? '✓ Attended (+10 pts)' : 'Absent'}
+                      {isChecked ? '✓ Attended (+25 pts)' : 'Absent'}
                     </span>
 
                     {!isChecked && (

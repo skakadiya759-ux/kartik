@@ -17,7 +17,9 @@ export interface DailySadhanaRecord {
   challengeRounds: number; // rounds chanted
   readingMinutes: number; // reading in minutes
   points: number; // calculated points
+  attendedSession?: boolean; // session attendance
   submittedAt: string;
+  updatedAt?: string;
 }
 
 export type DailyJapaRecord = DailySadhanaRecord;

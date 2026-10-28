@@ -90,10 +90,10 @@ export const ParticipantDashboard = ({
       return;
     }
 
-    if (hasLoggedSelectedDate) {
+    if (selectedDate > todayStr) {
       setMessage({
         type: 'error',
-        text: `You have already submitted japa rounds for ${selectedDate}. Duplicate submissions for the same date are restricted.`,
+        text: 'Sadhana cannot be entered for future dates. Please select today or a previous date.',
       });
       return;
     }
@@ -238,7 +238,7 @@ export const ParticipantDashboard = ({
                   color: 'var(--primary-dark)',
                 }}
               >
-                {userRank?.totalPoints || totalChallengeRounds * 5 + attendedSessions.length * 10}
+                {userRank?.totalPoints || totalChallengeRounds * 5 + attendedSessions.length * 25}
               </div>
               <div style={{ fontFamily: 'var(--font-sans)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                 Total Points
@@ -350,9 +350,16 @@ export const ParticipantDashboard = ({
                   type="date"
                   className="form-input"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setSelectedDate(newDate);
+                    const rec = japaRecords.find((r) => r.date === newDate);
+                    if (rec) {
+                      setRoundsToLog(String(rec.challengeRounds));
+                    }
+                  }}
                   min="2026-10-26"
-                  max="2026-11-24"
+                  max={todayStr < '2026-11-24' ? todayStr : '2026-11-24'}
                   required
                 />
               </div>
@@ -379,8 +386,8 @@ export const ParticipantDashboard = ({
               {hasLoggedSelectedDate ? (
                 <div
                   style={{
-                    background: 'var(--warning-bg)',
-                    color: 'var(--warning)',
+                    background: 'var(--success-bg)',
+                    color: 'var(--success)',
                     padding: '0.75rem',
                     borderRadius: 'var(--radius-md)',
                     fontSize: '0.85rem',
@@ -390,8 +397,8 @@ export const ParticipantDashboard = ({
                     marginBottom: '1rem',
                   }}
                 >
-                  <AlertCircle size={16} />
-                  <span>Japa rounds already logged for {selectedDate}. Duplicate prevention is active.</span>
+                  <CheckCircle2 size={16} />
+                  <span>Entry exists for {selectedDate}. Submitting will update your saved record.</span>
                 </div>
               ) : null}
 
@@ -399,13 +406,15 @@ export const ParticipantDashboard = ({
                 type="submit"
                 className="btn-spiritual btn-gold"
                 style={{ width: '100%', padding: '0.85rem' }}
-                disabled={isSubmitting || hasLoggedSelectedDate}
+                disabled={isSubmitting}
               >
                 <Flame size={18} />
                 {todayStr < '2026-10-26'
                   ? 'Submissions Open 26th Oct'
                   : isSubmitting
                   ? 'Recording Sacred Rounds...'
+                  : hasLoggedSelectedDate
+                  ? `Update Japa for ${selectedDate} (+${parseInt(roundsToLog || '0', 10) * 5} Pts)`
                   : `Submit Japa (+${parseInt(roundsToLog || '0', 10) * 5} Pts)`}
               </button>
             </form>
@@ -431,7 +440,7 @@ export const ParticipantDashboard = ({
               <div>
                 <h3 style={{ fontSize: '1.25rem', color: 'var(--primary-deep)' }}>Shravanam Attendance</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Verified by centre organizers (10 pts/session)
+                  Verified by centre organizers (25 pts/session)
                 </p>
               </div>
             </div>
@@ -474,7 +483,7 @@ export const ParticipantDashboard = ({
                           {s.date} • Speaker: {s.speaker}
                         </div>
                       </div>
-                      <span className="badge-spiritual badge-forest">+10 Pts</span>
+                      <span className="badge-spiritual badge-forest">+25 Pts</span>
                     </div>
                   ))}
                 </div>

@@ -1,13 +1,40 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, CheckCircle2, LogIn, UserPlus, Calendar, Clock } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  LogIn,
+  UserPlus,
+  Calendar,
+  Clock,
+  BookOpen,
+  AlertCircle,
+  Flame,
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
-import { SadhanaCalendar } from '../components/SadhanaCalendar';
-import type { Participant, DailySadhanaRecord } from '../types';
+import { SadhanaCalendar, getTodayIST } from '../components/SadhanaCalendar';
+import type { Participant, DailySadhanaRecord, ReadingSession } from '../types';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
   currentUser: Participant | null;
+}
+
+function formatFullDate(dateStr: string): string {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
@@ -16,20 +43,23 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  // Sadhana Form State
-  const [rounds, setRounds] = useState<number>(4);
-  const [readingMinutes, setReadingMinutes] = useState<number>(20);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [todayRecord, setTodayRecord] = useState<DailySadhanaRecord | null>(null);
-  const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState<number>(0);
-
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = useMemo(() => getTodayIST(), []);
   const KARTIK_START_DATE = '2026-10-26';
   const KARTIK_END_DATE = '2026-11-24';
+  const maxSelectableDate = todayStr < KARTIK_END_DATE ? todayStr : KARTIK_END_DATE;
   const isBeforeStart = todayStr < KARTIK_START_DATE;
-  const isAfterEnd = todayStr > KARTIK_END_DATE;
   const [triedBeforeStart, setTriedBeforeStart] = useState<boolean>(false);
+
+  // Sadhana Form State
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [rounds, setRounds] = useState<number>(4);
+  const [readingMinutes, setReadingMinutes] = useState<number>(20);
+  const [attendedSession, setAttendedSession] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [allUserRecords, setAllUserRecords] = useState<DailySadhanaRecord[]>([]);
+  const [sessions, setSessions] = useState<ReadingSession[]>([]);
+  const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState<number>(0);
 
   // Dynamic countdown days until 26th October
   const daysUntilStart = useMemo(() => {
@@ -45,6 +75,41 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
     }
   }, [todayStr]);
 
+  const yesterdayStr = useMemo(() => {
+    try {
+      const [y, m, d] = todayStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d - 1);
+      const yStr = dt.getFullYear();
+      const mStr = String(dt.getMonth() + 1).padStart(2, '0');
+      const dStr = String(dt.getDate()).padStart(2, '0');
+      return `${yStr}-${mStr}-${dStr}`;
+    } catch {
+      return '';
+    }
+  }, [todayStr]);
+
+  const challengeDatesUpToToday = useMemo(() => {
+    const dates: string[] = [];
+    try {
+      const [sy, sm, sd] = KARTIK_START_DATE.split('-').map(Number);
+      const [ty, tm, td] = todayStr.split('-').map(Number);
+      const curr = new Date(sy, sm - 1, sd);
+      const end = new Date(ty, tm - 1, td);
+      const maxEnd = new Date(2026, 10, 24);
+
+      while (curr <= end && curr <= maxEnd) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        const d = String(curr.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${d}`);
+        curr.setDate(curr.getDate() + 1);
+      }
+    } catch (err) {
+      console.error('Error generating challenge dates:', err);
+    }
+    return dates.reverse();
+  }, [todayStr]);
+
   const notifyPreStart = () => {
     if (isBeforeStart && !triedBeforeStart) {
       setTriedBeforeStart(true);
@@ -57,7 +122,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       title: 'Kartik Maha-Vrata 2026',
       desc: 'Dedicate this holy month to the service of Sri Sri Radha Damodara through sincere Harinam Sankirtan, deep daan offering, and pure devotional hearing.',
       themeClass: 'banner-slide-1',
-      actionText: 'Enter Today\'s Sadhana',
+      actionText: "Enter Today's Sadhana",
       actionTarget: 'sadhana-entry',
     },
     {
@@ -71,7 +136,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
     {
       badge: '📿 Daily Spiritual Elevation',
       title: 'Everyday Japa & Shravanam',
-      desc: 'Transform your consciousness daily. Chant the Hare Krishna Maha-Mantra with love and immerse in Srila Prabhupada\'s transcendental literature.',
+      desc: "Transform your consciousness daily. Chant the Hare Krishna Maha-Mantra with love and immerse in Srila Prabhupada's transcendental literature.",
       themeClass: 'banner-slide-3',
       actionText: 'View Live Standings',
       actionTarget: 'leaderboard',
@@ -91,21 +156,83 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
     };
   }, [isPaused, banners.length]);
 
-  // Fetch today's sadhana if user is logged in
-  useEffect(() => {
-    if (currentUser) {
-      api
-        .getTodaySadhana()
-        .then((res) => {
-          if (res.record) {
-            setTodayRecord(res.record);
-            setRounds(res.record.challengeRounds || 0);
-            setReadingMinutes(res.record.readingMinutes || 0);
-          }
-        })
-        .catch(() => { });
+  const syncFormForDate = useCallback(
+    (
+      dateStr: string,
+      records: DailySadhanaRecord[] = allUserRecords,
+      sessList: ReadingSession[] = sessions
+    ) => {
+      const existing = records.find((r) => r.date === dateStr);
+      const session = sessList.find((s) => s.date === dateStr);
+      const isSessionAttended =
+        session && session.attendedParticipantIds
+          ? session.attendedParticipantIds.includes(currentUser?.id || '')
+          : !!existing?.attendedSession;
+
+      if (existing) {
+        setRounds(existing.challengeRounds || 0);
+        setReadingMinutes(existing.readingMinutes || 0);
+        setAttendedSession(isSessionAttended);
+      } else {
+        setRounds(dateStr === todayStr ? 4 : 0);
+        setReadingMinutes(dateStr === todayStr ? 20 : 0);
+        setAttendedSession(isSessionAttended);
+      }
+    },
+    [allUserRecords, sessions, currentUser, todayStr]
+  );
+
+  const loadUserData = useCallback(async () => {
+    if (!currentUser) {
+      setAllUserRecords([]);
+      setSessions([]);
+      return;
     }
+    try {
+      const [histRes, sessRes] = await Promise.all([
+        api.getSadhanaHistory(),
+        api.getSessions(),
+      ]);
+      const records = histRes.records || [];
+      const sessList = sessRes.sessions || [];
+      setAllUserRecords(records);
+      setSessions(sessList);
+      syncFormForDate(selectedDate, records, sessList);
+    } catch (err) {
+      console.error('Failed to load user sadhana data:', err);
+    }
+  }, [currentUser, selectedDate, syncFormForDate]);
+
+  useEffect(() => {
+    loadUserData();
   }, [currentUser]);
+
+  const handleDateChange = (newDate: string) => {
+    if (!newDate) return;
+    if (newDate > maxSelectableDate) {
+      setFeedback({
+        type: 'error',
+        message: 'Future dates are not permitted. Please select today or a previous day.',
+      });
+      return;
+    }
+    if (newDate < KARTIK_START_DATE) {
+      setFeedback({
+        type: 'error',
+        message: 'The Kartik Challenge begins on 26th October 2026. Submissions before this date are not eligible.',
+      });
+      return;
+    }
+    setSelectedDate(newDate);
+    setFeedback(null);
+    syncFormForDate(newDate, allUserRecords, sessions);
+  };
+
+  const handleSelectDateFromCalendar = (dateStr: string) => {
+    handleDateChange(dateStr);
+    const el = document.getElementById('sadhana-entry-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const handlePrevBanner = () => {
     setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
@@ -129,7 +256,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
     e.preventDefault();
     setFeedback(null);
 
-    if (isBeforeStart) {
+    if (selectedDate < KARTIK_START_DATE) {
       setTriedBeforeStart(true);
       setFeedback({
         type: 'error',
@@ -140,10 +267,18 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       return;
     }
 
-    if (isAfterEnd) {
+    if (selectedDate > KARTIK_END_DATE) {
       setFeedback({
         type: 'error',
-        message: `Sadhana submission for Kartik 2026 concluded on 24th November 2026. Thank you for your sincere devotional service!`,
+        message: 'Sadhana submission for Kartik 2026 concluded on 24th November 2026. Thank you for your sincere devotional service!',
+      });
+      return;
+    }
+
+    if (selectedDate > todayStr) {
+      setFeedback({
+        type: 'error',
+        message: 'Sadhana cannot be entered for future dates. Please select today or a previous date within Kartik.',
       });
       return;
     }
@@ -166,27 +301,30 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       return;
     }
 
-    if (rounds === 0 && readingMinutes === 0) {
+    if (rounds === 0 && readingMinutes === 0 && !attendedSession) {
       setFeedback({
         type: 'error',
-        message: 'Please enter at least 1 chanting round or 1 minute of reading.',
+        message: 'Please enter at least 1 chanting round, 1 minute of reading, or mark session attendance.',
       });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await api.submitSadhana({
-        date: todayStr,
+      await api.submitSadhana({
+        date: selectedDate,
         rounds,
         readingMinutes,
+        attendedSession,
       });
 
-      setTodayRecord(res.record);
       setCalendarRefreshTrigger((prev) => prev + 1);
+      const isPastDate = selectedDate < todayStr;
+      const dateLabel = isPastDate ? `for ${selectedDate}` : 'for today';
+
       setFeedback({
         type: 'success',
-        message: `Haribol! Today's sadhana recorded successfully (${rounds} rounds chanted • ${readingMinutes} min read).`,
+        message: `Haribol! Sadhana ${dateLabel} saved successfully (${rounds} rounds chanted • ${readingMinutes} min read ${attendedSession ? '• Session attended' : ''}).`,
       });
 
       confetti({
@@ -195,6 +333,9 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
         origin: { y: 0.7 },
         colors: ['#FF7A1A', '#F59E0B', '#10B981', '#FFFFFF'],
       });
+
+      // Reload fresh data and keep form synchronized
+      await loadUserData();
     } catch (err: unknown) {
       const error = err as Error;
       setFeedback({
@@ -323,37 +464,67 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
       <section id="sadhana-entry-section" className="sadhana-card">
         <div className="sadhana-card-header">
           <div>
-            {/* <span className="glass-pill" style={{ marginBottom: '0.45rem' }}>
-              <Flame size={13} color="#EA580C" />
-              Daily Practice
-            </span> */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+              <span className="glass-pill" style={{ color: 'var(--primary-orange)' }}>
+                <Flame size={13} color="#EA580C" />
+                Daily Sadhana Practice
+              </span>
+              {selectedDate < todayStr && (
+                <span className="sadhana-date-badge-missed" style={{ fontSize: '0.75rem' }}>
+                  <Clock size={12} />
+                  Backdated Mode
+                </span>
+              )}
+            </div>
+
             <h2 style={{ fontSize: '1.75rem', marginTop: '0.2rem', color: 'var(--text-primary)' }}>
-              Daily Sadhana
+              Daily Sadhana Entry
             </h2>
-            {/* <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-              {formattedDate}
-            </p> */}
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              Log or update your sacred chanting, reading, and session attendance for today or any missed day in Kartik.
+            </p>
           </div>
 
-          {todayRecord && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.45rem 1rem',
-                borderRadius: 'var(--radius-pill)',
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                color: '#065F46',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-              }}
-            >
-              <CheckCircle2 size={16} color="#10B981" />
-              Logged Today ({todayRecord.challengeRounds} Rounds • {todayRecord.readingMinutes} Min)
-            </div>
-          )}
+          {(() => {
+            const currentRec = allUserRecords.find((r) => r.date === selectedDate);
+            if (currentRec) {
+              return (
+                <div className="sadhana-date-badge-editing">
+                  <CheckCircle2 size={16} color="#10B981" />
+                  <span>
+                    Saved for {selectedDate === todayStr ? 'Today' : selectedDate} ({currentRec.challengeRounds} rds • {currentRec.readingMinutes} min • {currentRec.points} pts)
+                  </span>
+                </div>
+              );
+            } else if (selectedDate < todayStr) {
+              return (
+                <div className="sadhana-date-badge-missed">
+                  <AlertCircle size={16} color="#D97706" />
+                  <span>Missed Entry for {selectedDate} — Enter now to claim points!</span>
+                </div>
+              );
+            } else {
+              return (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.45rem 1rem',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'rgba(234, 88, 12, 0.08)',
+                    border: '1px solid rgba(234, 88, 12, 0.25)',
+                    color: '#C2410C',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Calendar size={15} />
+                  <span>Today's Entry Pending</span>
+                </div>
+              );
+            }
+          })()}
         </div>
 
         {/* START DATE BANNER: SHOWS START DATE (26TH OCT TO 24TH NOV) */}
@@ -424,11 +595,73 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
         )}
 
         <form onSubmit={handleSubmitSadhana}>
+          {/* 1. DATE SELECTION CONTROLS */}
+          <div className="sadhana-date-selector-card">
+            <div className="sadhana-date-selector-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
+                <Calendar size={18} color="var(--primary-orange)" />
+                <span>1. Select Sadhana Date:</span>
+              </div>
+
+              {allUserRecords.some((r) => r.date === selectedDate) ? (
+                <div className="sadhana-date-badge-editing">
+                  <CheckCircle2 size={13} />
+                  <span>Entry Exists (Edit Mode)</span>
+                </div>
+              ) : selectedDate < todayStr ? (
+                <div className="sadhana-date-badge-missed">
+                  <AlertCircle size={13} />
+                  <span>Missed Date (Pending Entry)</span>
+                </div>
+              ) : (
+                <span className="badge-spiritual badge-forest" style={{ fontSize: '0.78rem' }}>
+                  Today's Date
+                </span>
+              )}
+            </div>
+
+            <div className="sadhana-date-selector-row">
+              <input
+                type="date"
+                id="sadhana-date-picker"
+                className="sadhana-date-input"
+                value={selectedDate}
+                min={KARTIK_START_DATE}
+                max={maxSelectableDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                aria-label="Select sadhana date"
+              />
+
+              <button
+                type="button"
+                className={`date-quick-btn ${selectedDate === todayStr ? 'active' : ''}`}
+                onClick={() => handleDateChange(todayStr)}
+              >
+                📅 Today
+              </button>
+
+              {yesterdayStr && yesterdayStr >= KARTIK_START_DATE && (
+                <button
+                  type="button"
+                  className={`date-quick-btn ${selectedDate === yesterdayStr ? 'active' : ''}`}
+                  onClick={() => handleDateChange(yesterdayStr)}
+                >
+                  ⏮ Yesterday
+                </button>
+              )}
+
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+                <strong>{formatFullDate(selectedDate)}</strong>
+              </div>
+            </div>
+          </div>
+
           <div className="sadhana-fields-grid">
             {/* Field 1: Chanting */}
             <div className="sadhana-field-box">
               <label className="sadhana-field-label">
-                <span>1. Chanting</span>
+                <Flame size={16} color="#EA580C" />
+                <span>2. Japa Malas (Chanting Rounds)</span>
               </label>
 
               <div className="sadhana-stepper-row">
@@ -485,12 +718,16 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                   </button>
                 ))}
               </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                5 points per round chanted (+{rounds * 5} pts)
+              </div>
             </div>
 
             {/* Field 2: Reading in min */}
             <div className="sadhana-field-box">
               <label className="sadhana-field-label">
-                <span>2. Reading</span>
+                <BookOpen size={16} color="#15803D" />
+                <span>3. Reading Prabhupada's Books (Min)</span>
               </label>
 
               <div className="sadhana-stepper-row">
@@ -533,7 +770,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
 
               {/* Quick Selectors */}
               <div className="sadhana-quick-chips">
-                {[30, 45, 60].map((mVal) => (
+                {[30, 45, 60, 90].map((mVal) => (
                   <button
                     key={mVal}
                     type="button"
@@ -547,6 +784,90 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                   </button>
                 ))}
               </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                1 point per reading minute (+{readingMinutes * 1} pts)
+              </div>
+            </div>
+          </div>
+
+          {/* Field 3: Reading Session Attendance Toggle Box */}
+          <div
+            className={`sadhana-session-toggle-box ${attendedSession ? 'active' : ''}`}
+            onClick={() => setAttendedSession(!attendedSession)}
+            role="checkbox"
+            aria-checked={attendedSession}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                setAttendedSession(!attendedSession);
+              }
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '10px',
+                  background: attendedSession ? '#0284C7' : 'rgba(3, 105, 161, 0.1)',
+                  color: attendedSession ? '#FFFFFF' : '#0284C7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0,
+                }}
+              >
+                <BookOpen size={20} />
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  4. Reading Session Attendance (Shravanam)
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                  Attended the daily Kartik Shravanam &amp; Satsang reading session on {selectedDate}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  padding: '0.25rem 0.65rem',
+                  borderRadius: 'var(--radius-pill)',
+                  background: attendedSession ? 'rgba(16, 185, 129, 0.15)' : 'rgba(3, 105, 161, 0.1)',
+                  color: attendedSession ? '#065F46' : '#0369A1',
+                }}
+              >
+                +25 Points
+              </span>
+
+              <input
+                type="checkbox"
+                checked={attendedSession}
+                onChange={(e) => setAttendedSession(e.target.checked)}
+                style={{ width: 20, height: 20, accentColor: '#0284C7', cursor: 'pointer' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Points Preview Bar */}
+          <div className="sadhana-points-preview-bar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+              <Sparkles size={16} color="var(--primary-orange)" />
+              <span>Score Preview for {selectedDate === todayStr ? 'Today' : selectedDate}:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {rounds} rds (+{rounds * 5}) + {readingMinutes} min (+{readingMinutes}) {attendedSession ? '+ Session (+25)' : ''}
+              </span>
+            </div>
+
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--primary-orange-deep)' }}>
+              +{rounds * 5 + readingMinutes * 1 + (attendedSession ? 25 : 0)} Total Pts
             </div>
           </div>
 
@@ -567,7 +888,7 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
                 gap: '0.5rem',
               }}
             >
-              {feedback.type === 'success' ? <CheckCircle2 size={16} /> : null}
+              {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
               <span>{feedback.message}</span>
             </div>
           )}
@@ -578,15 +899,17 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
               type="submit"
               className="btn-glass-primary"
               disabled={isSubmitting}
-              style={{ minWidth: '200px' }}
+              style={{ minWidth: '220px' }}
             >
               {isBeforeStart
                 ? 'Submissions Open 26th Oct'
                 : isSubmitting
                 ? 'Recording...'
-                : todayRecord
-                ? 'Update Today\'s Entry'
-                : 'Submit Sadhana'}
+                : allUserRecords.some((r) => r.date === selectedDate)
+                ? `Update Entry for ${selectedDate === todayStr ? 'Today' : selectedDate} (+${rounds * 5 + readingMinutes + (attendedSession ? 25 : 0)} Pts)`
+                : selectedDate < todayStr
+                ? `Submit Missed Entry for ${selectedDate} (+${rounds * 5 + readingMinutes + (attendedSession ? 25 : 0)} Pts)`
+                : `Submit Sadhana for Today (+${rounds * 5 + readingMinutes + (attendedSession ? 25 : 0)} Pts)`}
             </button>
 
             {!currentUser && (
@@ -596,14 +919,172 @@ export const HomePage = ({ onNavigate, currentUser }: HomePageProps) => {
             )}
           </div>
         </form>
-
       </section>
+
+      {/* 2.5 PREVIOUS DAYS' PROGRESS (DATE-WISE HISTORY) */}
+      {currentUser && (
+        <section className="sadhana-history-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="glass-pill" style={{ color: 'var(--primary-forest)' }}>
+                  <Calendar size={13} />
+                  Challenge Progress
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', marginTop: '0.35rem' }}>
+                Previous Days' Progress &amp; Missed Entries
+              </h3>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                Review all days in the challenge, see pending vs completed dates, and submit missed sadhana.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.82rem', fontWeight: 700 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#065F46' }}>
+                <CheckCircle2 size={14} color="#10B981" />
+                {challengeDatesUpToToday.filter((d) => allUserRecords.some((r) => r.date === d)).length} Completed
+              </span>
+              <span style={{ color: 'var(--border-strong)' }}>•</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#B45309' }}>
+                <AlertCircle size={14} color="#D97706" />
+                {challengeDatesUpToToday.filter((d) => !allUserRecords.some((r) => r.date === d)).length} Pending / Missed
+              </span>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table className="sadhana-history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Chanting (Rounds)</th>
+                  <th>Reading (Min)</th>
+                  <th>Session Attendance</th>
+                  <th>Points</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {challengeDatesUpToToday.map((dateStr) => {
+                  const rec = allUserRecords.find((r) => r.date === dateStr);
+                  const sess = sessions.find((s) => s.date === dateStr);
+                  const sessAttended = sess && sess.attendedParticipantIds
+                    ? sess.attendedParticipantIds.includes(currentUser.id)
+                    : !!rec?.attendedSession;
+                  const hasEntry = !!rec;
+                  const isToday = dateStr === todayStr;
+                  const totalDatePts = (rec?.points || 0) + (sessAttended ? 25 : 0);
+
+                  return (
+                    <tr
+                      key={dateStr}
+                      style={{
+                        background: selectedDate === dateStr ? 'rgba(255, 122, 26, 0.08)' : undefined,
+                      }}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                          {dateStr}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                          {isToday ? 'Today' : formatFullDate(dateStr).split(',')[0]}
+                        </div>
+                      </td>
+
+                      <td>
+                        {hasEntry ? (
+                          <span className="sadhana-date-badge-editing">
+                            <CheckCircle2 size={13} />
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="sadhana-date-badge-missed">
+                            <AlertCircle size={13} />
+                            {isToday ? 'Pending Today' : 'Missed Entry'}
+                          </span>
+                        )}
+                      </td>
+
+                      <td>
+                        {rec && rec.challengeRounds > 0 ? (
+                          <span style={{ fontWeight: 700, color: '#C2410C' }}>
+                            {rec.challengeRounds} rds ({rec.challengeRounds * 5} pts)
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>0 rds</span>
+                        )}
+                      </td>
+
+                      <td>
+                        {rec && rec.readingMinutes > 0 ? (
+                          <span style={{ fontWeight: 700, color: '#15803D' }}>
+                            {rec.readingMinutes} min ({rec.readingMinutes} pts)
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>0 min</span>
+                        )}
+                      </td>
+
+                      <td>
+                        {sessAttended ? (
+                          <span style={{ fontWeight: 700, color: '#0369A1' }}>
+                            Attended (+25 pts)
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+
+                      <td>
+                        <span style={{ fontWeight: 800, color: totalDatePts > 0 ? 'var(--primary-forest)' : 'var(--text-muted)' }}>
+                          +{totalDatePts} pts
+                        </span>
+                      </td>
+
+                      <td style={{ textAlign: 'right' }}>
+                        {hasEntry ? (
+                          <button
+                            type="button"
+                            className="btn-history-edit"
+                            onClick={() => {
+                              handleDateChange(dateStr);
+                              const el = document.getElementById('sadhana-entry-section');
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                          >
+                            ✏️ Edit Entry
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-history-missed"
+                            onClick={() => {
+                              handleDateChange(dateStr);
+                              const el = document.getElementById('sadhana-entry-section');
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                          >
+                            📝 Submit Missed
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* 3. PERSONAL SADHANA CALENDAR */}
       <SadhanaCalendar
         currentUser={currentUser}
         onNavigateToLogin={() => onNavigate('login')}
         refreshTrigger={calendarRefreshTrigger}
+        onSelectDate={handleSelectDateFromCalendar}
       />
 
       {/* 4. QUICK SPIRITUAL VALUES */}

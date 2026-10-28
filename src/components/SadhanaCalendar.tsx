@@ -29,6 +29,7 @@ interface SadhanaCalendarProps {
   targetParticipantId?: string; // Optional for admin inspection
   onNavigateToLogin?: () => void;
   refreshTrigger?: number; // Increment to force refetch
+  onSelectDate?: (date: string) => void; // Callback to enter/edit sadhana for this date
 }
 
 // Helper: Get today's date formatted as YYYY-MM-DD in Asia/Kolkata (IST)
@@ -80,6 +81,7 @@ export const SadhanaCalendar = ({
   targetParticipantId,
   onNavigateToLogin,
   refreshTrigger = 0,
+  onSelectDate,
 }: SadhanaCalendarProps) => {
   const todayStr = useMemo(() => getTodayIST(), []);
   const [todayYear, todayMonth] = useMemo(() => {
@@ -293,10 +295,10 @@ export const SadhanaCalendar = ({
     // Scoring Rules:
     // 5 points per eligible japa round
     // 1 point per reading minute
-    // 10 points per verified reading session attended
+    // 25 points per verified reading session attended
     // authorized adjustments
     const totalPoints =
-      totalRounds * 5 + totalReadingMinutes * 1 + sessionsAttended * 10 + adjustmentPoints;
+      totalRounds * 5 + totalReadingMinutes * 1 + sessionsAttended * 25 + adjustmentPoints;
 
     return {
       japaDaysCompleted,
@@ -562,7 +564,7 @@ export const SadhanaCalendar = ({
                   {/* Indicator 3: Session Attendance */}
                   <span
                     className={`activity-dot status-${day.sessionStatus === 'no_session' ? 'gray' : day.sessionStatus}`}
-                    title={`Session: ${day.session ? (day.session.attended ? 'Attended (+10 pts)' : day.sessionStatus === 'missed' ? 'Missed session' : 'Upcoming session') : 'No session scheduled'}`}
+                    title={`Session: ${day.session ? (day.session.attended ? 'Attended (+25 pts)' : day.sessionStatus === 'missed' ? 'Missed session' : 'Upcoming session') : 'No session scheduled'}`}
                     aria-label={`Session status: ${day.sessionStatus}`}
                   />
                 </div>
@@ -739,7 +741,7 @@ export const SadhanaCalendar = ({
                       {selectedDay.session.attended ? (
                         <>
                           <CheckCircle2 size={13} />
-                          Attended (+10 pts)
+                          Attended (+25 pts)
                         </>
                       ) : selectedDay.sessionStatus === 'missed' ? (
                         <>
@@ -776,9 +778,9 @@ export const SadhanaCalendar = ({
               )}
             </div>
 
-            {/* Total Points Footer (Close Details button removed) */}
+            {/* Total Points Footer & Action */}
             <div className="modal-points-footer">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <div style={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--cal-text-muted)' }}>
                     Total Points Earned
@@ -788,6 +790,22 @@ export const SadhanaCalendar = ({
                     <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--cal-text-muted)' }}>Points</span>
                   </div>
                 </div>
+
+                {onSelectDate && selectedDay.date <= todayStr && selectedDay.date >= '2026-10-26' && !targetParticipantId && (
+                  <button
+                    type="button"
+                    className="btn-cal-forest"
+                    style={{ fontSize: '0.85rem', padding: '0.55rem 1.15rem' }}
+                    onClick={() => {
+                      onSelectDate(selectedDay.date);
+                      setSelectedDay(null);
+                    }}
+                  >
+                    {selectedDay.japaStatus === 'completed' || selectedDay.readingStatus === 'completed' || (selectedDay.session && selectedDay.session.attended)
+                      ? '✏️ Edit Sadhana'
+                      : '📝 Submit Missed Sadhana'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -849,7 +867,7 @@ function buildDayDetails(
   if (session) {
     if (session.attended) {
       sessionStatus = 'completed';
-      sessionPoints = session.points || 10;
+      sessionPoints = session.points || 25;
     } else if (isPast && isWithinChallenge) {
       sessionStatus = 'missed';
       sessionPoints = 0;
